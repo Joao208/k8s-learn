@@ -18,7 +18,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
-    network_mode: "host"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+    networks:
+      - app-network
 
 networks:
   app-network:
