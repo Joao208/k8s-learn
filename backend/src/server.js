@@ -4,6 +4,7 @@ import { execa } from 'execa'
 import { customAlphabet } from 'nanoid'
 import cookieParser from 'cookie-parser'
 import cron from 'node-cron'
+import net from 'net'
 
 dotenv.config()
 console.log('Environment variables loaded')
@@ -49,16 +50,42 @@ cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
 })
 console.log('Scheduled cleanup cron job every 5 minutes')
 
+async function findAvailablePort(startPort = 6443) {
+  let port = startPort
+  while (port < 65535) {
+    try {
+      const server = net.createServer()
+      await new Promise((resolve, reject) => {
+        server.once('error', (err) => {
+          server.close()
+          reject(err)
+        })
+        server.once('listening', () => {
+          server.close()
+          resolve(true)
+        })
+        server.listen(port)
+      })
+      return port
+    } catch (err) {
+      port++
+    }
+  }
+  throw new Error('No available ports found')
+}
+
 async function createCluster(sandboxId) {
   console.log(`Starting creation of cluster ${sandboxId}`)
   try {
+    const port = await findAvailablePort()
+    console.log(`Using port ${port} for cluster ${sandboxId}`)
     console.log('Executing k3d cluster create command...')
     await execa('k3d', [
       'cluster',
       'create',
       sandboxId,
       '--api-port',
-      '6443',
+      port.toString(),
       '--k3s-arg',
       '--disable=traefik@server:0',
       '--wait',
