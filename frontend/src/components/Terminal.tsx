@@ -6,6 +6,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { KubernetesService } from "@/services/kubernetes";
 import { VirtualFileSystem } from "@/services/fileSystem";
+import { useThemeDetector } from "@/hooks/useThemeDetector";
 
 const fs = VirtualFileSystem.getInstance();
 
@@ -16,6 +17,8 @@ const Terminal = () => {
   const commandHistoryRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
   const currentLineRef = useRef("");
+  const isDark = useThemeDetector();
+  const terminalInstance = useRef<XTerm | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !terminalRef.current) return;
@@ -23,13 +26,18 @@ const Terminal = () => {
     const term = new XTerm({
       cursorBlink: true,
       theme: {
-        background: "#1a1b26",
-        foreground: "#a9b1d6",
+        background: isDark ? "#1a1b26" : "#ffffff",
+        foreground: isDark ? "#a9b1d6" : "#000000",
+        cursor: isDark ? "#a9b1d6" : "#000000",
+        cursorAccent: isDark ? "#1a1b26" : "#ffffff",
       },
       fontSize: 14,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       allowTransparency: true,
+      scrollback: 0,
     });
+
+    terminalInstance.current = term;
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
@@ -302,9 +310,23 @@ const Terminal = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!terminalInstance.current) return;
+
+    terminalInstance.current.options.theme = {
+      background: isDark ? "#1a1b26" : "#ffffff",
+      foreground: isDark ? "#a9b1d6" : "#000000",
+      cursor: isDark ? "#a9b1d6" : "#000000",
+      cursorAccent: isDark ? "#1a1b26" : "#ffffff",
+    };
+  }, [isDark]);
+
   return (
-    <div className="w-full h-full min-h-[400px] bg-[#1a1b26] rounded-lg overflow-hidden">
-      <div ref={terminalRef} className="w-full h-full" />
+    <div className="w-full h-full">
+      <div
+        ref={terminalRef}
+        className="w-full h-full [&_.xterm-viewport]:!overflow-hidden"
+      />
     </div>
   );
 };
