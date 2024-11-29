@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Instalar dependências e Node.js 20.x
-RUN apt-get update && apt-get install -y curl ca-certificates gnupg
+RUN apt-get update && apt-get install -y curl ca-certificates gnupg wget
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get update && apt-get install -y \
     nodejs \
@@ -20,6 +20,9 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 
 # Instalar k3d
 RUN wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+# Configurar o Docker para usar o daemon do host
+ENV DOCKER_HOST="unix:///var/run/docker.sock"
 
 WORKDIR /app
 

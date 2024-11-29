@@ -41,25 +41,28 @@ cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
 
 async function createCluster(sandboxId) {
   try {
-    await execa('minikube', [
-      'start',
-      '--profile',
+    await execa('k3d', [
+      'cluster',
+      'create',
       sandboxId,
-      '--driver=none',
-      '--kubernetes-version=v1.27.4',
+      '--api-port',
+      '6443',
+      '--k3s-arg',
+      '--disable=traefik@server:0',
+      '--wait',
     ])
 
     sandboxes.set(sandboxId, Date.now())
     return true
   } catch (error) {
-    console.error('Minikube error:', error)
+    console.error('K3d error:', error)
     throw new Error(`Failed to create cluster: ${error.message}`)
   }
 }
 
 async function deleteCluster(sandboxId) {
   try {
-    await execa('minikube', ['delete', '--profile', sandboxId])
+    await execa('k3d', ['cluster', 'delete', sandboxId])
     sandboxes.delete(sandboxId)
   } catch (error) {
     console.error('Delete error:', error)
@@ -94,11 +97,12 @@ async function validateSandbox(req, res, next) {
   }
 
   try {
-    await execa('kind', ['get', 'clusters'])
-    const result = await execa('kind', ['get', 'clusters'])
-    const clusters = result.stdout.split('\n')
+    const result = await execa('k3d', ['cluster', 'list'])
+    const clusters = result.stdout
+      .split('\n')
+      .filter((line) => line.includes(sandboxId))
 
-    if (!clusters.includes(sandboxId)) {
+    if (clusters.length === 0) {
       throw new Error('Sandbox not found')
     }
 
@@ -115,7 +119,7 @@ async function executeKubectlCommand(sandboxId, command) {
     const args = command.split(' ')
     const result = await execa('kubectl', [
       '--context',
-      `${sandboxId}`,
+      `k3d-${sandboxId}`,
       ...args,
     ])
     return result.stdout
@@ -130,10 +134,12 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
     const existingSandboxId = req.cookies.sandboxId
     if (existingSandboxId) {
       try {
-        const result = await execa('kind', ['get', 'clusters'])
-        const clusters = result.stdout.split('\n')
+        const result = await execa('k3d', ['cluster', 'list'])
+        const clusters = result.stdout
+          .split('\n')
+          .filter((line) => line.includes(existingSandboxId))
 
-        if (clusters.includes(existingSandboxId)) {
+        if (clusters.length > 0) {
           return res.json({
             message: 'Using existing sandbox',
             sandboxId: existingSandboxId,
