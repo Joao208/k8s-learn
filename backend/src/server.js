@@ -55,6 +55,8 @@ async function createCluster(sandboxId) {
       '--agents',
       '0',
       '--wait',
+      '--api-port',
+      '127.0.0.1:0',
       '--image',
       'rancher/k3s:v1.27.4-k3s1',
     ])
