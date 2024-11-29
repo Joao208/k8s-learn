@@ -1,0 +1,22 @@
+{
+  "name": "k8s-sandbox-service",
+  "version": "1.0.0",
+  "description": "Serviço para gerenciar sandboxes Kubernetes",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "execa": "^8.0.1",
+    "nanoid": "^5.0.4",
+    "cookie-parser": "^1.4.6",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
