@@ -18,10 +18,8 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
-# Instalar minikube
-RUN curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && \
-    chmod +x minikube && \
-    mv minikube /usr/local/bin/
+# Instalar k3d
+RUN wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 WORKDIR /app
 
