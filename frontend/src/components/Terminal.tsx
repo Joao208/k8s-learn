@@ -51,10 +51,17 @@ const Terminal = () => {
       const isCopyPasteKey = event.ctrlKey || event.metaKey;
 
       if (event.type === "keydown" && isCopyPasteKey) {
-        if (event.key === "c" && term.hasSelection()) {
-          const selection = term.getSelection();
-          navigator.clipboard.writeText(selection);
-          return false;
+        if (event.key === "c") {
+          if (term.hasSelection()) {
+            const selection = term.getSelection();
+            navigator.clipboard.writeText(selection);
+            return false;
+          } else {
+            term.write("^C");
+            term.write("\r\nkubernetes$ ");
+            commandRef.current = "";
+            return false;
+          }
         }
         if (event.key === "v") {
           navigator.clipboard
