@@ -103,7 +103,14 @@ async function validateSandbox(req, res, next) {
   }
 
   try {
-    await execa('k3d', ['cluster', 'list', sandboxId])
+    await execa('kind', ['get', 'clusters'])
+    const result = await execa('kind', ['get', 'clusters'])
+    const clusters = result.stdout.split('\n')
+
+    if (!clusters.includes(sandboxId)) {
+      throw new Error('Sandbox not found')
+    }
+
     next()
   } catch (error) {
     res.clearCookie('sandboxId')
@@ -131,12 +138,16 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
     const existingSandboxId = req.cookies.sandboxId
     if (existingSandboxId) {
       try {
-        await execa('k3d', ['cluster', 'list', existingSandboxId])
-        return res.json({
-          message: 'Using existing sandbox',
-          sandboxId: existingSandboxId,
-          expiresIn: `${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`,
-        })
+        const result = await execa('kind', ['get', 'clusters'])
+        const clusters = result.stdout.split('\n')
+
+        if (clusters.includes(existingSandboxId)) {
+          return res.json({
+            message: 'Using existing sandbox',
+            sandboxId: existingSandboxId,
+            expiresIn: `${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`,
+          })
+        }
       } catch (error) {
         res.clearCookie('sandboxId')
         sandboxes.delete(existingSandboxId)
