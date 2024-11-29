@@ -8,10 +8,9 @@ RUN apk add --no-cache \
     wget \
     shadow
 
-RUN groupadd -g 998 docker
-
-RUN useradd -m -s /bin/sh -u 1000 node && \
-    usermod -aG docker node
+RUN adduser -D -u 1000 node && \
+    addgroup -g 998 docker && \
+    addgroup node docker
 
 RUN wget -q -O /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 && \
     chmod +x /usr/local/bin/kind
