@@ -1,4 +1,4 @@
-FROM k3d-io/k3d-tools:5.6.0
+FROM ghcr.io/k3d-io/k3d-tools:5.6.0
 
 RUN apk add --no-cache \
     nodejs \
