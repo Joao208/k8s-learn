@@ -3,11 +3,11 @@ FROM ubuntu:22.04
 # Evitar prompts durante a instalação
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependências
+# Instalar dependências e Node.js 20.x
+RUN apt-get update && apt-get install -y curl ca-certificates gnupg
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 RUN apt-get update && apt-get install -y \
-    curl \
     nodejs \
-    npm \
     docker.io \
     conntrack \
     systemd \

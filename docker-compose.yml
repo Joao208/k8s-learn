@@ -26,8 +26,6 @@ services:
       - /etc/kubernetes:/etc/kubernetes
       - /var/lib/kubelet:/var/lib/kubelet
       - /var/lib/minikube:/var/lib/minikube
-      - /var/lib/kubeadm.yaml:/var/lib/kubeadm.yaml
-      - /sys/fs/cgroup:/sys/fs/cgroup
     privileged: true
     network_mode: "host"
     pid: "host"
