@@ -19,8 +19,15 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ~/.kube:/root/.kube
-      - ~/.minikube:/root/.minikube
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /var/lib/docker:/var/lib/docker
+      - /var/run/systemd:/var/run/systemd
+      - /etc/kubernetes:/etc/kubernetes
+      - /var/lib/kubelet:/var/lib/kubelet
+      - /var/lib/minikube:/var/lib/minikube
+      - /var/lib/kubeadm.yaml:/var/lib/kubeadm.yaml
+    privileged: true
     networks:
       - app-network
 

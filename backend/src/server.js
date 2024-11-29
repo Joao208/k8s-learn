@@ -46,13 +46,14 @@ async function createCluster(sandboxId) {
       'start',
       '--profile',
       sandboxId,
-      '--driver=docker',
+      '--driver=none',
       '--kubernetes-version=v1.27.4',
     ])
 
     sandboxes.set(sandboxId, Date.now())
     return true
   } catch (error) {
+    console.error('Minikube error:', error)
     throw new Error(`Failed to create cluster: ${error.message}`)
   }
 }
@@ -62,6 +63,7 @@ async function deleteCluster(sandboxId) {
     await execa('minikube', ['delete', '--profile', sandboxId])
     sandboxes.delete(sandboxId)
   } catch (error) {
+    console.error('Delete error:', error)
     throw new Error(`Failed to delete cluster: ${error.message}`)
   }
 }
@@ -119,6 +121,7 @@ async function executeKubectlCommand(sandboxId, command) {
     ])
     return result.stdout
   } catch (error) {
+    console.error('Kubectl error:', error)
     throw new Error(`Error executing command: ${error.message}`)
   }
 }
