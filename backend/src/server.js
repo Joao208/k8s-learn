@@ -60,6 +60,15 @@ async function createCluster(sandboxId) {
       '--image',
       'rancher/k3s:v1.27.4-k3s1',
     ])
+
+    await execa('k3d', [
+      'kubeconfig',
+      'merge',
+      sandboxId,
+      '--kubeconfig-merge-default',
+      '--kubeconfig-switch-context',
+    ])
+
     sandboxes.set(sandboxId, Date.now())
     return true
   } catch (error) {
