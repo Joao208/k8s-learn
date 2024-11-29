@@ -8,6 +8,7 @@ import cron from 'node-cron'
 dotenv.config()
 
 const app = express()
+const router = express.Router()
 app.use(express.json())
 app.use(cookieParser())
 
@@ -124,7 +125,7 @@ async function executeKubectlCommand(sandboxId, command) {
   return execa('kubectl', ['--context', `k3d-${sandboxId}`, ...args])
 }
 
-app.post('/sandbox', preventConcurrentRequests, async (req, res) => {
+router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
   try {
     const existingSandboxId = req.cookies.sandboxId
     if (existingSandboxId) {
@@ -162,7 +163,7 @@ app.post('/sandbox', preventConcurrentRequests, async (req, res) => {
   }
 })
 
-app.post('/sandbox/exec', validateSandbox, async (req, res) => {
+router.post('/sandbox/exec', validateSandbox, async (req, res) => {
   try {
     const { command } = req.body
     const sandboxId = req.cookies.sandboxId
@@ -184,7 +185,7 @@ app.post('/sandbox/exec', validateSandbox, async (req, res) => {
   }
 })
 
-app.delete('/sandbox', validateSandbox, async (req, res) => {
+router.delete('/sandbox', validateSandbox, async (req, res) => {
   try {
     const sandboxId = req.cookies.sandboxId
     await deleteCluster(sandboxId)
@@ -197,6 +198,8 @@ app.delete('/sandbox', validateSandbox, async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
+app.use('/api', router)
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
