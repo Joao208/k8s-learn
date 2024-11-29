@@ -133,7 +133,10 @@ async function executeKubectlCommand(sandboxId, command) {
     console.log(
       `Executing command for cluster k3d-${sandboxId}: kubectl ${command}`
     )
-    const args = command.split(' ')
+    const args = command
+      .trim()
+      .split(/\s+/)
+      .filter((arg) => arg !== '')
     const result = await execa('kubectl', [
       '--context',
       `k3d-${sandboxId}`,
