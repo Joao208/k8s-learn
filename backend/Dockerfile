@@ -5,10 +5,16 @@ RUN apk add --no-cache \
     npm \
     curl \
     docker-cli \
-    wget
+    wget \
+    shadow
 
-RUN wget -q -O /usr/local/bin/k3d https://github.com/k3d-io/k3d/releases/download/v5.6.0/k3d-linux-amd64 && \
-    chmod +x /usr/local/bin/k3d
+RUN groupadd -g 998 docker
+
+RUN useradd -m -s /bin/sh -u 1000 node && \
+    usermod -aG docker node
+
+RUN wget -q -O /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 && \
+    chmod +x /usr/local/bin/kind
 
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod +x kubectl && \
@@ -20,6 +26,10 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+
+RUN chown -R node:node /app
+
+USER node
 
 EXPOSE 3001
 

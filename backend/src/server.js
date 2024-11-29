@@ -4,6 +4,7 @@ import { execa } from 'execa'
 import { customAlphabet } from 'nanoid'
 import cookieParser from 'cookie-parser'
 import cron from 'node-cron'
+import fs from 'fs/promises'
 
 dotenv.config()
 
@@ -41,49 +42,23 @@ cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
 
 async function createCluster(sandboxId) {
   try {
-    const idNumber =
-      parseInt(sandboxId.replace(/[^0-9]/g, '').slice(-3), 10) || 0
-    const apiPort = 30000 + (idNumber % 1000)
+    const config = `
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ${sandboxId}
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 0
+    protocol: TCP
+`
+    const configPath = `/tmp/${sandboxId}-config.yaml`
+    await fs.writeFile(configPath, config)
 
-    await execa('docker', ['network', 'create', `k3d-${sandboxId}`])
+    await execa('kind', ['create', 'cluster', '--config', configPath])
 
-    await execa('k3d', [
-      'cluster',
-      'create',
-      sandboxId,
-      '--no-lb',
-      '--k3s-arg',
-      '--disable=traefik@server:0',
-      '--k3s-arg',
-      '--disable=servicelb@server:0',
-      '--servers',
-      '1',
-      '--agents',
-      '0',
-      '--wait',
-      '--network',
-      `k3d-${sandboxId}`,
-      '--api-port',
-      `${apiPort}`,
-      '--image',
-      'rancher/k3s:v1.27.4-k3s1',
-    ])
-
-    const backendContainer = process.env.HOSTNAME || 'k8s-simulator-backend-1'
-    await execa('docker', [
-      'network',
-      'connect',
-      `k3d-${sandboxId}`,
-      backendContainer,
-    ])
-
-    await execa('k3d', [
-      'kubeconfig',
-      'merge',
-      sandboxId,
-      '--kubeconfig-merge-default',
-      '--kubeconfig-switch-context',
-    ])
+    await fs.unlink(configPath)
 
     sandboxes.set(sandboxId, Date.now())
     return true
@@ -94,26 +69,7 @@ async function createCluster(sandboxId) {
 
 async function deleteCluster(sandboxId) {
   try {
-    const backendContainer = process.env.HOSTNAME || 'k8s-simulator-backend-1'
-    try {
-      await execa('docker', [
-        'network',
-        'disconnect',
-        `k3d-${sandboxId}`,
-        backendContainer,
-      ])
-    } catch (error) {
-      console.log(`Warning: Failed to disconnect network: ${error.message}`)
-    }
-
-    await execa('k3d', ['cluster', 'delete', sandboxId])
-
-    try {
-      await execa('docker', ['network', 'rm', `k3d-${sandboxId}`])
-    } catch (error) {
-      console.log(`Warning: Failed to remove network: ${error.message}`)
-    }
-
+    await execa('kind', ['delete', 'cluster', '--name', sandboxId])
     sandboxes.delete(sandboxId)
   } catch (error) {
     throw new Error(`Failed to delete cluster: ${error.message}`)
@@ -157,18 +113,17 @@ async function validateSandbox(req, res, next) {
 }
 
 async function executeKubectlCommand(sandboxId, command) {
-  const args = command.split(' ').filter((arg) => arg !== '')
-
-  if (args[0] === 'run') {
-    const nameIndex = args.indexOf('--name')
-    if (nameIndex !== -1) {
-      const name = args[nameIndex + 1]
-      args.splice(nameIndex, 2)
-      args.splice(1, 0, name)
-    }
+  const args = command.split(' ')
+  try {
+    const result = await execa('kubectl', [
+      '--context',
+      `kind-${sandboxId}`,
+      ...args,
+    ])
+    return result.stdout
+  } catch (error) {
+    throw new Error(`Error executing command: ${error.message}`)
   }
-
-  return execa('kubectl', ['--context', `k3d-${sandboxId}`, ...args])
 }
 
 router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
