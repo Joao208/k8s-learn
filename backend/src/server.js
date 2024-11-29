@@ -4,7 +4,6 @@ import { execa } from 'execa'
 import { customAlphabet } from 'nanoid'
 import cookieParser from 'cookie-parser'
 import cron from 'node-cron'
-import fs from 'fs/promises'
 
 dotenv.config()
 
