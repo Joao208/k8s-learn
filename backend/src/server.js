@@ -41,6 +41,12 @@ cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
 
 async function createCluster(sandboxId) {
   try {
+    const idNumber =
+      parseInt(sandboxId.replace(/[^0-9]/g, '').slice(-3), 10) || 0
+    const apiPort = 30000 + (idNumber % 1000)
+
+    await execa('docker', ['network', 'create', `k3d-${sandboxId}`])
+
     await execa('k3d', [
       'cluster',
       'create',
@@ -55,10 +61,20 @@ async function createCluster(sandboxId) {
       '--agents',
       '0',
       '--wait',
+      '--network',
+      `k3d-${sandboxId}`,
       '--api-port',
-      '127.0.0.1:0',
+      `${apiPort}`,
       '--image',
       'rancher/k3s:v1.27.4-k3s1',
+    ])
+
+    const backendContainer = process.env.HOSTNAME || 'k8s-simulator-backend-1'
+    await execa('docker', [
+      'network',
+      'connect',
+      `k3d-${sandboxId}`,
+      backendContainer,
     ])
 
     await execa('k3d', [
@@ -78,7 +94,26 @@ async function createCluster(sandboxId) {
 
 async function deleteCluster(sandboxId) {
   try {
+    const backendContainer = process.env.HOSTNAME || 'k8s-simulator-backend-1'
+    try {
+      await execa('docker', [
+        'network',
+        'disconnect',
+        `k3d-${sandboxId}`,
+        backendContainer,
+      ])
+    } catch (error) {
+      console.log(`Warning: Failed to disconnect network: ${error.message}`)
+    }
+
     await execa('k3d', ['cluster', 'delete', sandboxId])
+
+    try {
+      await execa('docker', ['network', 'rm', `k3d-${sandboxId}`])
+    } catch (error) {
+      console.log(`Warning: Failed to remove network: ${error.message}`)
+    }
+
     sandboxes.delete(sandboxId)
   } catch (error) {
     throw new Error(`Failed to delete cluster: ${error.message}`)
