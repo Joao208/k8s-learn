@@ -46,6 +46,9 @@ async function createCluster(sandboxId) {
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ${sandboxId}
+networking:
+  apiServerAddress: "0.0.0.0"
+  apiServerPort: 0
 nodes:
 - role: control-plane
   extraPortMappings:
@@ -57,6 +60,8 @@ nodes:
     await fs.writeFile(configPath, config)
 
     await execa('kind', ['create', 'cluster', '--config', configPath])
+
+    await execa('kind', ['export', 'kubeconfig', '--name', sandboxId])
 
     await fs.unlink(configPath)
 
@@ -120,8 +125,10 @@ async function validateSandbox(req, res, next) {
 }
 
 async function executeKubectlCommand(sandboxId, command) {
-  const args = command.split(' ')
   try {
+    await execa('kind', ['export', 'kubeconfig', '--name', sandboxId])
+
+    const args = command.split(' ')
     const result = await execa('kubectl', [
       '--context',
       `kind-${sandboxId}`,
