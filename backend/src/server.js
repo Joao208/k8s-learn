@@ -42,18 +42,13 @@ cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
 
 async function createCluster(sandboxId) {
   try {
-    const config = `
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-name: ${sandboxId}
-nodes:
-- role: control-plane
-`
-    const configPath = `/tmp/${sandboxId}-config.yaml`
-    await fs.writeFile(configPath, config)
-
-    await execa('kind', ['create', 'cluster', '--config', configPath])
-    await fs.unlink(configPath)
+    await execa('minikube', [
+      'start',
+      '--profile',
+      sandboxId,
+      '--driver=docker',
+      '--kubernetes-version=v1.27.4',
+    ])
 
     sandboxes.set(sandboxId, Date.now())
     return true
@@ -64,7 +59,7 @@ nodes:
 
 async function deleteCluster(sandboxId) {
   try {
-    await execa('kind', ['delete', 'cluster', '--name', sandboxId])
+    await execa('minikube', ['delete', '--profile', sandboxId])
     sandboxes.delete(sandboxId)
   } catch (error) {
     throw new Error(`Failed to delete cluster: ${error.message}`)
@@ -119,7 +114,7 @@ async function executeKubectlCommand(sandboxId, command) {
     const args = command.split(' ')
     const result = await execa('kubectl', [
       '--context',
-      `kind-${sandboxId}`,
+      `${sandboxId}`,
       ...args,
     ])
     return result.stdout
