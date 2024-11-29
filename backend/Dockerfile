@@ -1,12 +1,17 @@
-FROM alpine:3.18
+FROM ubuntu:22.04
 
-RUN apk add --no-cache \
+# Evitar prompts durante a instalação
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar dependências
+RUN apt-get update && apt-get install -y \
+    curl \
     nodejs \
     npm \
-    curl \
-    docker-cli \
-    conntrack-tools \
-    docker-engine
+    docker.io \
+    conntrack \
+    systemd \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instalar kubectl
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
