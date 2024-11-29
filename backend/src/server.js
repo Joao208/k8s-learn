@@ -52,6 +52,20 @@ async function createCluster(sandboxId) {
       '--wait',
     ])
 
+    // Esperar o cluster ficar pronto
+    await new Promise((resolve) => setTimeout(resolve, 10000))
+
+    // Verificar se o cluster está pronto
+    await execa('kubectl', [
+      '--context',
+      `k3d-${sandboxId}`,
+      'wait',
+      '--for=condition=Ready',
+      'nodes',
+      '--all',
+      '--timeout=30s',
+    ])
+
     sandboxes.set(sandboxId, Date.now())
     return true
   } catch (error) {
@@ -116,12 +130,16 @@ async function validateSandbox(req, res, next) {
 
 async function executeKubectlCommand(sandboxId, command) {
   try {
+    console.log(
+      `Executing command for cluster k3d-${sandboxId}: kubectl ${command}`
+    )
     const args = command.split(' ')
     const result = await execa('kubectl', [
       '--context',
       `k3d-${sandboxId}`,
       ...args,
     ])
+    console.log('Command output:', result.stdout)
     return result.stdout
   } catch (error) {
     console.error('Kubectl error:', error)
@@ -182,12 +200,12 @@ router.post('/sandbox/exec', validateSandbox, async (req, res) => {
       return res.status(400).json({ error: 'Command not provided' })
     }
 
-    const result = await executeKubectlCommand(sandboxId, command)
+    const output = await executeKubectlCommand(sandboxId, command)
 
     res.json({
       message: 'Command executed successfully',
       command,
-      output: result.stdout,
+      output,
     })
   } catch (error) {
     console.error('Error executing command:', error)
