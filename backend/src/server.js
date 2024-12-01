@@ -200,51 +200,31 @@ async function validateSandbox(req, res, next) {
   }
 }
 
-async function executeKubectlCommand(sandboxId, command) {
+async function executeCommand(sandboxId, command, type = 'kubectl') {
   try {
     console.log(
-      `Executing command for cluster k3d-${sandboxId}: kubectl ${command}`
+      `Executing command for cluster k3d-${sandboxId}: ${type} ${command}`
     )
-    const args = command
-      .trim()
-      .split(/\s+/)
-      .filter((arg) => arg !== '')
+
+    const args = command.split(' ').filter((arg) => arg.length > 0)
     console.log('Parsed command arguments:', args)
 
-    const result = await execa('kubectl', [
-      '--context',
-      `k3d-${sandboxId}`,
+    const result = await execa(type, [
+      '--kubeconfig',
+      `/tmp/kubeconfig-${sandboxId}`,
       ...args,
     ])
+
     console.log('Command output:', result.stdout)
     return result.stdout
   } catch (error) {
-    console.error('Kubectl error:', error)
-    throw new Error(`Error executing command: ${error.message}`)
-  }
-}
-
-async function executeHelmCommand(sandboxId, command) {
-  try {
-    console.log(
-      `Executing Helm command for cluster k3d-${sandboxId}: helm ${command}`
-    )
-    const args = command
-      .trim()
-      .split(/\s+/)
-      .filter((arg) => arg !== '')
-    console.log('Parsed Helm command arguments:', args)
-
-    const result = await execa('helm', [
-      '--kube-context',
-      `k3d-${sandboxId}`,
-      ...args,
-    ])
-    console.log('Helm command output:', result.stdout)
-    return result.stdout
-  } catch (error) {
-    console.error('Helm error:', error)
-    throw new Error(`Error executing Helm command: ${error.message}`)
+    console.error(`${type} error:`, error)
+    throw {
+      message: error.message,
+      stderr: error.stderr,
+      command: error.command,
+      exitCode: error.exitCode,
+    }
   }
 }
 
@@ -302,36 +282,27 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
 })
 
 router.post('/sandbox/exec', validateSandbox, async (req, res) => {
-  console.log('Received command execution request')
   try {
     const { command, type = 'kubectl' } = req.body
     const sandboxId = req.cookies.sandboxId
 
-    if (!command) {
-      console.log('No command provided in request')
-      return res.status(400).json({ error: 'Command not provided' })
+    if (!sandboxId) {
+      return res.status(400).json({ error: 'Sandbox ID not found' })
     }
 
-    console.log(
-      `Executing ${type} command "${command}" in sandbox ${sandboxId}`
-    )
-    let output
-
-    if (type === 'helm') {
-      output = await executeHelmCommand(sandboxId, command)
-    } else {
-      output = await executeKubectlCommand(sandboxId, command)
-    }
-
-    console.log('Command executed successfully')
-    res.json({
-      message: 'Command executed successfully',
-      command,
-      output,
-    })
+    const output = await executeCommand(sandboxId, command)
+    res.json({ output })
   } catch (error) {
     console.error('Error executing command:', error)
-    res.status(500).json({ error: error.message })
+    res.status(500).json({
+      error: 'Failed to execute command',
+      details: {
+        message: error.message,
+        stderr: error.stderr,
+        command: error.command,
+        exitCode: error.exitCode,
+      },
+    })
   }
 })
 

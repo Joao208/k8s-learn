@@ -47,7 +47,7 @@ export class KubernetesService {
 
   async executeCommand(
     command: string,
-    type: "kubectl" | "helm" = "kubectl"
+    type: "kubectl" = "kubectl"
   ): Promise<string> {
     if (!this.sandboxCreated) {
       await this.createSandbox();
@@ -65,6 +65,9 @@ export class KubernetesService {
 
       if (!response.ok) {
         const error = await response.json();
+        if (error.details) {
+          throw new Error(`${error.details.stderr || error.details.message}`);
+        }
         throw new Error(error.message || "Failed to execute command");
       }
 
@@ -74,10 +77,6 @@ export class KubernetesService {
       console.error("Error executing command:", error);
       throw error;
     }
-  }
-
-  async executeHelmCommand(command: string): Promise<string> {
-    return this.executeCommand(command, "helm");
   }
 
   async executeKubectlCommand(command: string): Promise<string> {
