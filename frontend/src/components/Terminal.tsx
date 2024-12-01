@@ -263,7 +263,7 @@ const Terminal = () => {
           term.write("\r\n");
           term.write("\r\n   # Create Ingress resource");
           term.write(
-            '\r\n   create ingress nginx-ingress --rule="yourdomain.com/*=nginx-service:80"'
+            "\r\n   kubectl create ingress nginx-ingress --class=nginx --rule=yourdomain.com/*=nginx-service:80"
           );
           term.write("\r\n");
           term.write("\r\n   # Check Ingress status");
