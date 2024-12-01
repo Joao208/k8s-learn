@@ -34,7 +34,9 @@ const Terminal = () => {
       fontSize: 14,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       allowTransparency: true,
-      scrollback: 0,
+      scrollback: 10000,
+      convertEol: true,
+      scrollOnUserInput: true,
     });
 
     terminalInstance.current = term;
@@ -97,6 +99,7 @@ const Terminal = () => {
             "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)\r\n" +
             "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste\r\n" +
             "- History: Up/Down arrows to navigate through command history\r\n" +
+            "- Help: 'help' or 'tutorial' to see basic commands\r\n" +
             "\r\nFile System Commands:\r\n" +
             "- ls: List files and directories\r\n" +
             "- cd [dir]: Change directory\r\n" +

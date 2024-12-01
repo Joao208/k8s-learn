@@ -206,7 +206,11 @@ async function executeCommand(sandboxId, command, type = 'kubectl') {
       `Executing command for cluster k3d-${sandboxId}: ${type} ${command}`
     )
 
-    const args = command.split(' ').filter((arg) => arg.length > 0)
+    const args = command
+      .match(/(?:[^\s"]+|"[^"]*")+/g)
+      .map((arg) =>
+        arg.startsWith('"') && arg.endsWith('"') ? arg.slice(1, -1) : arg
+      )
     console.log('Parsed command arguments:', args)
 
     const result = await execa(type, [
