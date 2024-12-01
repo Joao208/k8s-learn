@@ -28,20 +28,38 @@ async function cleanupExpiredSandboxes() {
   const now = Date.now()
   let cleanedCount = 0
 
-  for (const [sandboxId, createdAt] of sandboxes.entries()) {
-    if (now - createdAt > SANDBOX_LIFETIME_MS) {
-      console.log(`Sandbox ${sandboxId} has expired, cleaning up...`)
-      try {
-        await deleteCluster(sandboxId)
-        sandboxes.delete(sandboxId)
-        cleanedCount++
-        console.log(`Successfully cleaned up sandbox ${sandboxId}`)
-      } catch (error) {
-        console.error(`Failed to cleanup sandbox ${sandboxId}:`, error)
+  try {
+    const result = await execa('k3d', ['cluster', 'list', '--no-headers'])
+    const clusters = result.stdout
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+
+    for (const clusterLine of clusters) {
+      const clusterName = clusterLine.split(/\s+/)[0]
+
+      if (clusterName.startsWith('sb-')) {
+        const createdAt = sandboxes.get(clusterName)
+
+        if (!createdAt || now - createdAt > SANDBOX_LIFETIME_MS) {
+          console.log(
+            `Cluster ${clusterName} is expired or orphaned, removing...`
+          )
+          try {
+            await deleteCluster(clusterName)
+            sandboxes.delete(clusterName)
+            cleanedCount++
+            console.log(`Cluster ${clusterName} successfully removed`)
+          } catch (error) {
+            console.error(`Failed to remove cluster ${clusterName}:`, error)
+          }
+        }
       }
     }
+  } catch (error) {
+    console.error('Error listing clusters during cleanup:', error)
   }
-  console.log(`Cleanup completed. Removed ${cleanedCount} expired sandboxes`)
+
+  console.log(`Cleanup completed. Removed ${cleanedCount} expired clusters`)
 }
 
 cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
