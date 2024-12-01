@@ -62,6 +62,8 @@ async function cleanupExpiredSandboxes() {
   console.log(`Cleanup completed. Removed ${cleanedCount} expired clusters`)
 }
 
+cleanupExpiredSandboxes()
+
 cron.schedule('*/5 * * * *', cleanupExpiredSandboxes, {
   scheduled: true,
   timezone: 'UTC',
