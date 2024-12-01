@@ -214,6 +214,100 @@ const Terminal = () => {
           return;
         }
 
+        if (trimmedCommand === "tutorial" || trimmedCommand === "help") {
+          term.write("\r\n🎓 Kubernetes Basic Tutorial\r\n");
+          term.write("\r\n1. Getting Started:");
+          term.write("\r\n   - List all pods: get pods");
+          term.write("\r\n   - List all services: get services");
+          term.write("\r\n   - List all deployments: get deployments");
+          term.write("\r\n");
+          term.write("\r\n2. Complete Application Deployment:");
+          term.write("\r\n   # Create nginx deployment with 2 replicas");
+          term.write(
+            "\r\n   create deployment nginx-deployment --image=nginx:latest --replicas=2"
+          );
+          term.write("\r\n");
+          term.write("\r\n   # Check deployment status");
+          term.write("\r\n   get deployment nginx-deployment");
+          term.write("\r\n   get pods");
+          term.write("\r\n");
+          term.write("\r\n   # Create service to expose the deployment");
+          term.write(
+            "\r\n   expose deployment nginx-deployment --port=80 --target-port=80 --name=nginx-service"
+          );
+          term.write("\r\n");
+          term.write("\r\n   # Verify created service");
+          term.write("\r\n   get service nginx-service");
+          term.write("\r\n");
+          term.write("\r\n3. Setting Up Ingress:");
+          term.write("\r\n   # Install NGINX Ingress Controller using Helm");
+          term.write(
+            "\r\n   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx"
+          );
+          term.write("\r\n   helm repo update");
+          term.write(
+            "\r\n   helm install nginx-ingress ingress-nginx/ingress-nginx"
+          );
+          term.write("\r\n");
+          term.write("\r\n   # Or install using kubectl");
+          term.write(
+            "\r\n   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml"
+          );
+          term.write("\r\n");
+          term.write("\r\n   # Verify Ingress Controller installation");
+          term.write("\r\n   get pods -n ingress-nginx");
+          term.write("\r\n   get svc -n ingress-nginx");
+          term.write("\r\n");
+          term.write("\r\n   # Create Ingress resource");
+          term.write(
+            '\r\n   create ingress nginx-ingress --rule="yourdomain.com/*=nginx-service:80"'
+          );
+          term.write("\r\n");
+          term.write("\r\n   # Check Ingress status");
+          term.write("\r\n   get ingress");
+          term.write("\r\n   describe ingress nginx-ingress");
+          term.write("\r\n");
+          term.write("\r\n4. Managing Your Application:");
+          term.write("\r\n   # Scale the number of replicas");
+          term.write("\r\n   scale deployment nginx-deployment --replicas=3");
+          term.write("\r\n");
+          term.write("\r\n   # View logs from a specific pod");
+          term.write(
+            "\r\n   logs nginx-deployment-[press tab to autocomplete]"
+          );
+          term.write("\r\n");
+          term.write("\r\n   # Describe resources for debugging");
+          term.write("\r\n   describe deployment nginx-deployment");
+          term.write("\r\n   describe service nginx-service");
+          term.write("\r\n");
+          term.write("\r\n5. Cleaning Up Resources:");
+          term.write("\r\n   delete deployment nginx-deployment");
+          term.write("\r\n   delete service nginx-service");
+          term.write("\r\n   delete ingress nginx-ingress");
+          term.write("\r\n");
+          term.write("\r\n💡 Tips:");
+          term.write("\r\n- Use 'k' as shorthand for 'kubectl'");
+          term.write("\r\n- The 'kubectl' prefix is optional");
+          term.write("\r\n- Use TAB key for command autocompletion");
+          term.write("\r\n- Use ↑↓ arrows to navigate command history");
+          term.write("\r\n- Use 'describe' for debugging when things go wrong");
+          term.write("\r\n- Always verify resource status after creation");
+          term.write("\r\n");
+          term.write("\r\n📚 Key Concepts:");
+          term.write("\r\n- Deployment: Manages pod replicas and updates");
+          term.write(
+            "\r\n- Service: Exposes pods for internal or external access"
+          );
+          term.write("\r\n- Pod: Smallest deployable unit in Kubernetes");
+          term.write(
+            "\r\n- ReplicaSet: Ensures desired number of pods are running"
+          );
+          term.write("\r\n- Ingress: Manages external access to services");
+          term.write("\r\n");
+          term.write("\r\nkubernetes$ ");
+          return;
+        }
+
         let normalizedCommand = trimmedCommand;
         if (normalizedCommand.startsWith("kubectl ")) {
           normalizedCommand = normalizedCommand.slice(7);
