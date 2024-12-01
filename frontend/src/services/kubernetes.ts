@@ -45,7 +45,10 @@ export class KubernetesService {
     return this.initializationPromise;
   }
 
-  async executeCommand(command: string): Promise<string> {
+  async executeCommand(
+    command: string,
+    type: "kubectl" | "helm" = "kubectl"
+  ): Promise<string> {
     if (!this.sandboxCreated) {
       await this.createSandbox();
     }
@@ -57,7 +60,7 @@ export class KubernetesService {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ command }),
+        body: JSON.stringify({ command, type }),
       });
 
       if (!response.ok) {
@@ -71,6 +74,14 @@ export class KubernetesService {
       console.error("Error executing command:", error);
       throw error;
     }
+  }
+
+  async executeHelmCommand(command: string): Promise<string> {
+    return this.executeCommand(command, "helm");
+  }
+
+  async executeKubectlCommand(command: string): Promise<string> {
+    return this.executeCommand(command, "kubectl");
   }
 
   async deleteSandbox(): Promise<void> {

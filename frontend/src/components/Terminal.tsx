@@ -92,6 +92,7 @@ const Terminal = () => {
           "\r\nAvailable commands:\r\n" +
             "- You can use 'k' as a shortcut for 'kubectl'\r\n" +
             "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')\r\n" +
+            "- Helm commands are supported (e.g., 'helm install', 'helm list')\r\n" +
             "- Common commands: get pods, get services, describe pod [name], etc.\r\n" +
             "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)\r\n" +
             "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste\r\n" +
@@ -210,6 +211,17 @@ const Terminal = () => {
           term.clear();
           term.write("\x1b[H");
           term.write("kubernetes$ ");
+          return;
+        }
+
+        if (trimmedCommand.startsWith("helm ")) {
+          const output = await kubernetesService.executeHelmCommand(
+            trimmedCommand
+          );
+          output.split("\n").forEach((line) => {
+            term.write("\r\n" + line);
+          });
+          term.write("\r\nkubernetes$ ");
           return;
         }
 

@@ -206,6 +206,30 @@ async function executeKubectlCommand(sandboxId, command) {
   }
 }
 
+async function executeHelmCommand(sandboxId, command) {
+  try {
+    console.log(
+      `Executing Helm command for cluster k3d-${sandboxId}: helm ${command}`
+    )
+    const args = command
+      .trim()
+      .split(/\s+/)
+      .filter((arg) => arg !== '')
+    console.log('Parsed Helm command arguments:', args)
+
+    const result = await execa('helm', [
+      '--kube-context',
+      `k3d-${sandboxId}`,
+      ...args,
+    ])
+    console.log('Helm command output:', result.stdout)
+    return result.stdout
+  } catch (error) {
+    console.error('Helm error:', error)
+    throw new Error(`Error executing Helm command: ${error.message}`)
+  }
+}
+
 router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
   console.log('Received request to create/get sandbox')
   try {
@@ -262,7 +286,7 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
 router.post('/sandbox/exec', validateSandbox, async (req, res) => {
   console.log('Received command execution request')
   try {
-    const { command } = req.body
+    const { command, type = 'kubectl' } = req.body
     const sandboxId = req.cookies.sandboxId
 
     if (!command) {
@@ -270,8 +294,16 @@ router.post('/sandbox/exec', validateSandbox, async (req, res) => {
       return res.status(400).json({ error: 'Command not provided' })
     }
 
-    console.log(`Executing command "${command}" in sandbox ${sandboxId}`)
-    const output = await executeKubectlCommand(sandboxId, command)
+    console.log(
+      `Executing ${type} command "${command}" in sandbox ${sandboxId}`
+    )
+    let output
+
+    if (type === 'helm') {
+      output = await executeHelmCommand(sandboxId, command)
+    } else {
+      output = await executeKubectlCommand(sandboxId, command)
+    }
 
     console.log('Command executed successfully')
     res.json({
