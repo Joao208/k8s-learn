@@ -5,6 +5,7 @@ import { customAlphabet } from 'nanoid'
 import cookieParser from 'cookie-parser'
 import cron from 'node-cron'
 import net from 'net'
+import fs from 'fs/promises'
 
 dotenv.config()
 console.log('Environment variables loaded')
@@ -126,6 +127,15 @@ async function createCluster(sandboxId) {
       '--timeout=30s',
     ])
     console.log('All nodes are ready')
+
+    console.log('Exporting kubeconfig...')
+    const kubeconfigResult = await execa('k3d', [
+      'kubeconfig',
+      'get',
+      sandboxId,
+    ])
+    await fs.writeFile(`/tmp/kubeconfig-${sandboxId}`, kubeconfigResult.stdout)
+    console.log('Kubeconfig exported successfully')
 
     sandboxes.set(sandboxId, Date.now())
     console.log(`Cluster ${sandboxId} created successfully`)
