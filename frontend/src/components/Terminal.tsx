@@ -92,10 +92,12 @@ function Terminal() {
         setOutputs((prev) => [...prev, { command: "", output: helpMessage }]);
       })
       .catch((error) => {
-        setOutputs((prev) => [
-          ...prev,
-          { command: "", output: `Error creating sandbox: ${error.message}` },
-        ]);
+        const errorMessage =
+          error.status === 429
+            ? "A sandbox is already being created for your IP. Please wait a few seconds and try again. If the problem persists, try refreshing the page."
+            : `Error creating sandbox: ${error.message}`;
+
+        setOutputs((prev) => [...prev, { command: "", output: errorMessage }]);
       });
 
     return () => {
