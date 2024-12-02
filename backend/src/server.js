@@ -19,6 +19,7 @@ console.log('Express app configured with JSON and cookie parser middleware')
 const SANDBOX_LIFETIME_MS = 60 * 60 * 1000
 const sandboxes = new Map()
 const creationLocks = new Map()
+const ipToSandbox = new Map()
 const generateId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10)
 console.log(
   `Sandbox lifetime set to ${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`
@@ -30,6 +31,39 @@ async function cleanupExpiredSandboxes() {
   let cleanedCount = 0
 
   try {
+    const ipSandboxes = new Map()
+    for (const [ip, sandboxId] of ipToSandbox.entries()) {
+      if (!ipSandboxes.has(ip)) {
+        ipSandboxes.set(ip, [])
+      }
+      ipSandboxes.get(ip).push(sandboxId)
+    }
+
+    for (const [ip, sandboxIds] of ipSandboxes.entries()) {
+      if (sandboxIds.length > 1) {
+        console.log(`Found multiple sandboxes for IP ${ip}, cleaning up...`)
+        const sortedSandboxes = sandboxIds
+          .filter((id) => sandboxes.has(id))
+          .sort((a, b) => sandboxes.get(b) - sandboxes.get(a))
+
+        for (let i = 1; i < sortedSandboxes.length; i++) {
+          const sandboxId = sortedSandboxes[i]
+          console.log(`Removing duplicate sandbox ${sandboxId} for IP ${ip}`)
+          try {
+            await deleteCluster(sandboxId)
+            sandboxes.delete(sandboxId)
+            ipToSandbox.delete(ip)
+            cleanedCount++
+          } catch (error) {
+            console.error(
+              `Failed to remove duplicate sandbox ${sandboxId}:`,
+              error
+            )
+          }
+        }
+      }
+    }
+
     const result = await execa('k3d', ['cluster', 'list', '--no-headers'])
     const clusters = result.stdout
       .split('\n')
@@ -48,6 +82,11 @@ async function cleanupExpiredSandboxes() {
           try {
             await deleteCluster(clusterName)
             sandboxes.delete(clusterName)
+            for (const [ip, sandbox] of ipToSandbox.entries()) {
+              if (sandbox === clusterName) {
+                ipToSandbox.delete(ip)
+              }
+            }
             cleanedCount++
             console.log(`Cluster ${clusterName} successfully removed`)
           } catch (error) {
@@ -57,10 +96,10 @@ async function cleanupExpiredSandboxes() {
       }
     }
   } catch (error) {
-    console.error('Error listing clusters during cleanup:', error)
+    console.error('Error during cleanup:', error)
   }
 
-  console.log(`Cleanup completed. Removed ${cleanedCount} expired clusters`)
+  console.log(`Cleanup completed. Removed ${cleanedCount} clusters`)
 }
 
 cleanupExpiredSandboxes()
@@ -246,10 +285,12 @@ async function executeCommand(sandboxId, command, type = 'kubectl') {
 
 router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
   console.log('Received request to create/get sandbox')
+  const clientIp = req.ip
   try {
-    const existingSandboxId = req.cookies.sandboxId
+    const existingSandboxId = ipToSandbox.get(clientIp)
+    console.log(`Checking sandbox for IP ${clientIp}: ${existingSandboxId}`)
+
     if (existingSandboxId) {
-      console.log(`Found existing sandbox ID: ${existingSandboxId}`)
       try {
         console.log('Checking if existing sandbox is still valid')
         const result = await execa('k3d', ['cluster', 'list'])
@@ -257,26 +298,43 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
           .split('\n')
           .filter((line) => line.includes(existingSandboxId))
 
-        if (clusters.length > 0) {
-          console.log(`Existing sandbox ${existingSandboxId} is valid`)
-          return res.json({
-            message: 'Using existing sandbox',
-            sandboxId: existingSandboxId,
-            expiresIn: `${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`,
-          })
+        if (clusters.length > 0 && sandboxes.has(existingSandboxId)) {
+          const createdAt = sandboxes.get(existingSandboxId)
+          const now = Date.now()
+
+          if (now - createdAt <= SANDBOX_LIFETIME_MS) {
+            console.log(`Existing sandbox ${existingSandboxId} is valid`)
+            res.cookie('sandboxId', existingSandboxId, {
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'strict',
+              maxAge: SANDBOX_LIFETIME_MS - (now - createdAt),
+            })
+            return res.json({
+              message: 'Using existing sandbox',
+              sandboxId: existingSandboxId,
+              expiresIn:
+                Math.floor(
+                  (SANDBOX_LIFETIME_MS - (now - createdAt)) / 1000 / 60
+                ) + ' minutes',
+            })
+          }
         }
       } catch (error) {
         console.log(
           `Existing sandbox ${existingSandboxId} is invalid, cleaning up`
         )
-        res.clearCookie('sandboxId')
-        sandboxes.delete(existingSandboxId)
       }
+      ipToSandbox.delete(clientIp)
+      sandboxes.delete(existingSandboxId)
+      res.clearCookie('sandboxId')
     }
 
     const sandboxId = 'sb-' + generateId()
     console.log(`Creating new sandbox with ID: ${sandboxId}`)
     await createCluster(sandboxId)
+
+    ipToSandbox.set(clientIp, sandboxId)
+    sandboxes.set(sandboxId, Date.now())
 
     console.log('Setting sandbox cookie')
     res.cookie('sandboxId', sandboxId, {
@@ -325,8 +383,11 @@ router.delete('/sandbox', validateSandbox, async (req, res) => {
   console.log('Received sandbox deletion request')
   try {
     const sandboxId = req.cookies.sandboxId
+    const clientIp = req.ip
     console.log(`Deleting sandbox ${sandboxId}`)
     await deleteCluster(sandboxId)
+    sandboxes.delete(sandboxId)
+    ipToSandbox.delete(clientIp)
     res.clearCookie('sandboxId')
     console.log(`Sandbox ${sandboxId} deleted successfully`)
     res.json({

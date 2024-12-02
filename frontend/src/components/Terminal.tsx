@@ -61,36 +61,44 @@ function Terminal() {
 
     const welcomeMessage = [
       "Welcome to Kubernetes Terminal! 🚀",
-      "Creating your Kubernetes sandbox...",
-      "(This might take a few seconds, please wait)",
+      "Setting up your Kubernetes sandbox...",
+      "(This might take a few seconds if a new sandbox needs to be created)",
     ].join("\n");
 
     setOutputs([{ command: "", output: welcomeMessage }]);
 
     kubernetesService
       .createSandbox()
-      .then(() => {
-        const sandboxId = getCookie("sandboxId") as string;
-        if (sandboxId) {
-          setCluster(sandboxId);
+      .then(
+        (response: {
+          message: string;
+          sandboxId: string;
+          expiresIn: string;
+        }) => {
+          const sandboxId = getCookie("sandboxId") as string;
+          if (sandboxId) {
+            setCluster(sandboxId);
+          }
+
+          const helpMessage = [
+            response.message === "Using existing sandbox"
+              ? "Connected to your existing sandbox! You can continue where you left off."
+              : "Sandbox created successfully! You have 1 hour to use this environment.",
+            "",
+            "Available commands:",
+            "- You can use 'k' as a shortcut for 'kubectl'",
+            "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')",
+            "- Common commands: get pods, get services, describe pod [name], etc.",
+            "- For Ingress configuration, use the machine IP: 45.55.124.130",
+            "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)",
+            "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste",
+            "- History: Up/Down arrows to navigate through command history",
+            "- Help: 'help' or 'tutorial' to see basic commands",
+          ].join("\n");
+
+          setOutputs((prev) => [...prev, { command: "", output: helpMessage }]);
         }
-
-        const helpMessage = [
-          "Sandbox created successfully! You have 1 hour to use this environment.",
-          "",
-          "Available commands:",
-          "- You can use 'k' as a shortcut for 'kubectl'",
-          "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')",
-          "- Common commands: get pods, get services, describe pod [name], etc.",
-          "- For Ingress configuration, use the machine IP: 45.55.124.130",
-          "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)",
-          "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste",
-          "- History: Up/Down arrows to navigate through command history",
-          "- Help: 'help' or 'tutorial' to see basic commands",
-        ].join("\n");
-
-        setOutputs((prev) => [...prev, { command: "", output: helpMessage }]);
-      })
+      )
       .catch((error) => {
         const errorMessage =
           error.status === 429

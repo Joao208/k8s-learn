@@ -1,9 +1,15 @@
 const API_URL = "/api/sandbox";
 
+interface SandboxResponse {
+  message: string;
+  sandboxId: string;
+  expiresIn: string;
+}
+
 export class KubernetesService {
   private static instance: KubernetesService;
   private sandboxCreated: boolean = false;
-  private initializationPromise: Promise<void> | null = null;
+  private initializationPromise: Promise<SandboxResponse> | null = null;
 
   private constructor() {}
 
@@ -38,9 +44,24 @@ export class KubernetesService {
     }
   }
 
-  async createSandbox(): Promise<void> {
+  async createSandbox(): Promise<SandboxResponse> {
     if (!this.initializationPromise) {
-      this.initializationPromise = this.initialize();
+      this.initializationPromise = this.initialize().then(async () => {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw { ...error, status: response.status };
+        }
+
+        return response.json();
+      });
     }
     return this.initializationPromise;
   }
