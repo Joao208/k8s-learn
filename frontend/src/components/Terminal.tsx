@@ -67,6 +67,11 @@ const Terminal = () => {
     kubernetesService
       .createSandbox()
       .then(() => {
+        const sandboxId = getCookie("sandboxId") as string;
+        if (sandboxId) {
+          setCluster(sandboxId);
+        }
+
         const helpMessage = [
           "Sandbox created successfully! You have 1 hour to use this environment.",
           "",
