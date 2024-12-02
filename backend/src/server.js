@@ -20,7 +20,7 @@ app.use(cookieParser())
 console.log('Express app configured with JSON and cookie parser middleware')
 
 const SANDBOX_LIFETIME_MS = 60 * 60 * 1000
-const MAX_CONCURRENT_SANDBOXES = 1
+const MAX_CONCURRENT_SANDBOXES = 2
 const sandboxes = new Map()
 const creationLocks = new Map()
 const ipToSandbox = new Map()
@@ -31,19 +31,15 @@ console.log(
 )
 
 function getClientIP(req) {
-  const forwardedFor = req.headers['x-forwarded-for']
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim()
-  }
-  return req.ip
+  return req.socket.remoteAddress.replace(/^::ffff:/, '')
 }
 
 function preventConcurrentRequests(req, res, next) {
   const clientIp = getClientIP(req)
-  console.log(`Checking concurrent requests for IP: ${clientIp}`)
+  console.log(`Request from IP: ${clientIp}`)
 
   if (creationLocks.get(clientIp)) {
-    console.log(`Concurrent request detected for IP: ${clientIp}`)
+    console.log(`Concurrent request blocked for IP: ${clientIp}`)
     return res.status(429).json({
       error: 'A sandbox is already being created for this IP. Please wait.',
       retryAfter: 5000,
@@ -52,6 +48,7 @@ function preventConcurrentRequests(req, res, next) {
 
   creationLocks.set(clientIp, true)
   console.log(`Lock set for IP: ${clientIp}`)
+
   res.on('finish', () => {
     creationLocks.delete(clientIp)
     console.log(`Lock released for IP: ${clientIp}`)
@@ -326,13 +323,12 @@ async function executeCommand(sandboxId, command, type = 'kubectl') {
 }
 
 router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
-  console.log('Received request to create/get sandbox')
   const clientIp = getClientIP(req)
-  console.log(`Client IP: ${clientIp}`)
+  console.log(`Processing sandbox request for IP: ${clientIp}`)
 
   try {
     const existingSandboxId = ipToSandbox.get(clientIp)
-    console.log(`Checking sandbox for IP ${clientIp}: ${existingSandboxId}`)
+    console.log(`Existing sandbox for IP ${clientIp}: ${existingSandboxId}`)
 
     if (existingSandboxId) {
       try {
@@ -375,14 +371,12 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
 
     if (sandboxes.size >= MAX_CONCURRENT_SANDBOXES) {
       console.log(
-        'Maximum number of concurrent sandboxes reached, adding to queue'
+        `Maximum concurrent sandboxes reached. IP ${clientIp} added to queue.`
       )
-      const queuePosition = sandboxQueue.length + 1
-
       return res.status(202).json({
-        message: 'Added to queue',
-        queuePosition,
-        estimatedWaitTime: `${queuePosition * 2} minutes`,
+        message: 'Maximum sandboxes reached. You are in the waiting queue.',
+        queuePosition: sandboxQueue.length + 1,
+        estimatedWaitTime: `${(sandboxQueue.length + 1) * 2} minutes`,
         retryAfter: 5000,
       })
     }
@@ -407,7 +401,7 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
       expiresIn: `${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`,
     })
   } catch (error) {
-    console.error('Error creating sandbox:', error)
+    console.error(`Error processing request for IP ${clientIp}:`, error)
     res.status(500).json({ error: error.message })
   }
 })
