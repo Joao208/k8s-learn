@@ -15,8 +15,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "K8s Learn",
-  description: "An interactive platform to learn and practice Kubernetes",
+  title: "K8s Learn - Interactive Kubernetes Playground",
+  description:
+    "Learn Kubernetes hands-on with an interactive terminal and isolated sandbox environment. Perfect for beginners and experienced users alike.",
   keywords: [
     "kubernetes",
     "k8s",
@@ -26,6 +27,21 @@ export const metadata: Metadata = {
     "containers",
   ],
   authors: [{ name: "João Barros" }],
+  openGraph: {
+    title: "K8s Learn - Interactive Kubernetes Playground",
+    description:
+      "Learn Kubernetes hands-on with an interactive terminal and isolated sandbox environment. Perfect for beginners and experienced users alike.",
+    url: "https://k8s-learn.joaobarros.dev",
+    siteName: "K8s Learn",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "K8s Learn - Interactive Kubernetes Playground",
+    description:
+      "Learn Kubernetes hands-on with an interactive terminal and isolated sandbox environment. Perfect for beginners and experienced users alike.",
+  },
 };
 
 export const viewport = {
