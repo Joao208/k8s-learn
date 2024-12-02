@@ -18,7 +18,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+      className="rounded-lg p-2 hover:bg-secondary dark:hover:bg-secondary"
     >
       {theme === "dark" ? (
         <svg
