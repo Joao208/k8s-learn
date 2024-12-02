@@ -6,17 +6,12 @@ import cookieParser from 'cookie-parser'
 import cron from 'node-cron'
 import net from 'net'
 import fs from 'fs/promises'
-import requestIp from 'request-ip'
 
 dotenv.config()
 console.log('Environment variables loaded')
 
 const app = express()
 const router = express.Router()
-
-app.set('trust proxy', true)
-
-app.use(requestIp.mw())
 
 app.use(express.json())
 app.use(cookieParser())
@@ -34,7 +29,19 @@ console.log(
 )
 
 function getClientIP(req) {
-  return requestIp.getClientIp(req)
+  const clientIp = req.headers['x-real-client-ip']
+  if (clientIp) {
+    console.log(`Using IP from frontend: ${clientIp}`)
+    return clientIp
+  }
+
+  const ip = req.socket.remoteAddress
+  console.log(`Using socket IP: ${ip}`)
+
+  if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+    return '127.0.0.1'
+  }
+  return ip.replace(/^::ffff:/, '')
 }
 
 function preventConcurrentRequests(req, res, next) {

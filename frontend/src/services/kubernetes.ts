@@ -11,8 +11,11 @@ export class KubernetesService {
   private static instance: KubernetesService;
   private sandboxCreated: boolean = false;
   private initializationPromise: Promise<SandboxResponse> | null = null;
+  private clientIP: string | null = null;
 
-  private constructor() {}
+  private constructor() {
+    this.getClientIP().catch(console.error);
+  }
 
   static getInstance(): KubernetesService {
     if (!KubernetesService.instance) {
@@ -21,15 +24,31 @@ export class KubernetesService {
     return KubernetesService.instance;
   }
 
+  private async getClientIP(): Promise<string | null> {
+    if (this.clientIP) return this.clientIP;
+
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      this.clientIP = data.ip;
+      return this.clientIP;
+    } catch (error) {
+      console.error("Failed to get client IP:", error);
+      return null;
+    }
+  }
+
   private async initialize(): Promise<void> {
     if (this.sandboxCreated) return;
 
     try {
+      const clientIP = await this.getClientIP();
       const response = await fetch(API_URL, {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
+          ...(clientIP && { "X-Real-Client-IP": clientIP }),
         },
       });
 
@@ -48,11 +67,13 @@ export class KubernetesService {
   async createSandbox(): Promise<SandboxResponse> {
     if (!this.initializationPromise) {
       this.initializationPromise = this.initialize().then(async () => {
+        const clientIP = await this.getClientIP();
         const response = await fetch(API_URL, {
           method: "POST",
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
+            ...(clientIP && { "X-Real-Client-IP": clientIP }),
           },
         });
 
