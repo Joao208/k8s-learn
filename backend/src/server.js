@@ -31,7 +31,13 @@ console.log(
 )
 
 function getClientIP(req) {
-  return req.socket.remoteAddress.replace(/^::ffff:/, '')
+  const ip = req.socket.remoteAddress
+
+  if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+    return '127.0.0.1'
+  }
+
+  return ip.replace(/^::ffff:/, '')
 }
 
 function preventConcurrentRequests(req, res, next) {
