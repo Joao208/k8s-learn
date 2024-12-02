@@ -276,6 +276,8 @@ export default function CommandInput({
           autoClosingBrackets: "never",
           autoClosingQuotes: "never",
           autoSurround: "never",
+          ariaLabel: "Type a command",
+          placeholder: "Type a command...",
         }}
         onMount={handleEditorMount}
       />

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { KubernetesService } from "@/services/kubernetes";
 import CommandInput from "./CommandInput";
 import { getCookie } from "cookies-next";
+import Tutorial from "./Tutorial";
+import { tutorials } from "@/lib/tutorials";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +19,14 @@ import {
   Download,
   EllipsisVertical,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface CommandOutput {
   command: string;
   output: string;
 }
 
-const Terminal = () => {
+function Terminal() {
   const outputRef = useRef<HTMLDivElement>(null);
   const kubernetesService = KubernetesService.getInstance();
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -34,11 +37,11 @@ const Terminal = () => {
   const [cluster, setCluster] = useState<string>("");
   const [isWatching, setIsWatching] = useState(false);
   const watchIntervalRef = useRef<NodeJS.Timeout>();
+  const [selectedTutorial, setSelectedTutorial] = useState(tutorials[0]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const sandboxId = getCookie("sandboxId") as string;
-
     if (sandboxId) {
       setCluster(sandboxId);
     }
@@ -200,7 +203,6 @@ const Terminal = () => {
           };
 
           await executeWatch();
-
           watchIntervalRef.current = setInterval(executeWatch, 2000);
           continue;
         }
@@ -210,13 +212,7 @@ const Terminal = () => {
             clearInterval(watchIntervalRef.current);
           }
           setIsWatching(false);
-          setOutputs((prev) => [
-            ...prev,
-            {
-              command: "",
-              output: "^C",
-            },
-          ]);
+          setOutputs((prev) => [...prev, { command: "", output: "^C" }]);
           continue;
         }
 
@@ -260,11 +256,35 @@ const Terminal = () => {
 
   return (
     <div className="flex flex-col w-full h-screen">
+      <div className="flex items-center gap-2 p-2 border-t border-white/10 justify-between">
+        <div className="flex items-center gap-2">
+          {tutorials.map((tutorial) => (
+            <button
+              key={tutorial.id}
+              onClick={() => setSelectedTutorial(tutorial)}
+              className={`px-3 py-1 rounded text-sm ${
+                selectedTutorial.id === tutorial.id
+                  ? "bg-white/10"
+                  : "hover:bg-white/5"
+              }`}
+            >
+              {tutorial.title}
+            </button>
+          ))}
+        </div>
+
+        <ThemeToggle />
+      </div>
       <div className="flex-1 min-h-0 border-t border-white/10">
         <div
           className="w-full h-full p-4 overflow-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-background [&::-webkit-scrollbar-thumb]:bg-accent hover:[&::-webkit-scrollbar-thumb]:bg-accent/80"
           ref={outputRef}
         >
+          <Tutorial
+            tutorial={selectedTutorial}
+            onCommand={handleCommand}
+            lastOutput={outputs[outputs.length - 1]?.output || ""}
+          />
           {outputs.map((output, index) => (
             <div
               key={index}
@@ -349,6 +369,5 @@ const Terminal = () => {
       />
     </div>
   );
-};
-
+}
 export default Terminal;
