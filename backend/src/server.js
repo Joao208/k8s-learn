@@ -20,7 +20,7 @@ app.use(cookieParser())
 console.log('Express app configured with JSON and cookie parser middleware')
 
 const SANDBOX_LIFETIME_MS = 60 * 60 * 1000
-const MAX_CONCURRENT_SANDBOXES = 2
+const MAX_CONCURRENT_SANDBOXES = 1
 const sandboxes = new Map()
 const creationLocks = new Map()
 const ipToSandbox = new Map()
