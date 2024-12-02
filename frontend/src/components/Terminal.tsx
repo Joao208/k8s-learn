@@ -1,317 +1,221 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Terminal as XTerm } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
+import { useEffect, useRef, useState } from "react";
 import { KubernetesService } from "@/services/kubernetes";
-import { VirtualFileSystem } from "@/services/fileSystem";
-import { useThemeDetector } from "@/hooks/useThemeDetector";
+import CommandInput from "./CommandInput";
+import { getCookie } from "cookies-next";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Copy,
+  CopyCheck,
+  Terminal as TerminalIcon,
+  Download,
+  EllipsisVertical,
+} from "lucide-react";
 
-const fs = VirtualFileSystem.getInstance();
+interface CommandOutput {
+  command: string;
+  output: string;
+}
 
 const Terminal = () => {
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const commandRef = useRef("");
+  const outputRef = useRef<HTMLDivElement>(null);
   const kubernetesService = KubernetesService.getInstance();
-  const commandHistoryRef = useRef<string[]>([]);
-  const historyIndexRef = useRef(-1);
-  const currentLineRef = useRef("");
-  const isDark = useThemeDetector();
-  const terminalInstance = useRef<XTerm | null>(null);
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [outputs, setOutputs] = useState<CommandOutput[]>([]);
+  const [currentCommand, setCurrentCommand] = useState<string>("");
+  const hasInitialized = useRef(false);
+  const [cluster, setCluster] = useState<string>("");
+  const [isWatching, setIsWatching] = useState(false);
+  const watchIntervalRef = useRef<NodeJS.Timeout>();
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !terminalRef.current) return;
+    const sandboxId = getCookie("sandboxId") as string;
 
-    const term = new XTerm({
-      cursorBlink: true,
-      theme: {
-        background: isDark ? "#1a1b26" : "#ffffff",
-        foreground: isDark ? "#a9b1d6" : "#000000",
-        cursor: isDark ? "#a9b1d6" : "#000000",
-        cursorAccent: isDark ? "#1a1b26" : "#ffffff",
-      },
-      fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      allowTransparency: true,
-      scrollback: 10000,
-      convertEol: true,
-      scrollOnUserInput: true,
-    });
+    if (sandboxId) {
+      setCluster(sandboxId);
+    }
+  }, []);
 
-    terminalInstance.current = term;
-
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
-
-    setTimeout(() => {
-      fitAddon.fit();
-    }, 100);
-
-    term.attachCustomKeyEventHandler((event) => {
-      const isCopyPasteKey = event.ctrlKey || event.metaKey;
-
-      if (event.type === "keydown" && isCopyPasteKey) {
-        if (event.key === "c") {
-          if (term.hasSelection()) {
-            const selection = term.getSelection();
-            navigator.clipboard.writeText(selection);
-            return false;
-          } else {
-            term.write("^C");
-            term.write("\r\nkubernetes$ ");
-            commandRef.current = "";
-            return false;
-          }
-        }
-        if (event.key === "v") {
-          navigator.clipboard
-            .readText()
-            .then((text) => {
-              if (text) {
-                commandRef.current += text;
-                term.write(text);
-              }
-            })
-            .catch(console.error);
-          return false;
-        }
+  useEffect(() => {
+    return () => {
+      if (watchIntervalRef.current) {
+        clearInterval(watchIntervalRef.current);
       }
-      return true;
-    });
+    };
+  }, []);
 
-    term.write("Welcome to Kubernetes Terminal! 🚀\r\n");
-    term.write("Creating your Kubernetes sandbox...\r\n");
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    const welcomeMessage = [
+      "Welcome to Kubernetes Terminal! 🚀",
+      "Creating your Kubernetes sandbox...",
+      "(This might take a few seconds, please wait)",
+    ].join("\n");
+
+    setOutputs([{ command: "", output: welcomeMessage }]);
 
     kubernetesService
       .createSandbox()
       .then(() => {
-        term.write(
-          "Sandbox created successfully! You have 1 hour to use this environment.\r\n"
-        );
-        term.write(
-          "\r\nAvailable commands:\r\n" +
-            "- You can use 'k' as a shortcut for 'kubectl'\r\n" +
-            "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')\r\n" +
-            "- Common commands: get pods, get services, describe pod [name], etc.\r\n" +
-            "- For Ingress configuration, use the machine IP: 45.55.124.130\r\n" +
-            "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)\r\n" +
-            "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste\r\n" +
-            "- History: Up/Down arrows to navigate through command history\r\n" +
-            "- Help: 'help' or 'tutorial' to see basic commands\r\n" +
-            "\r\nFile System Commands:\r\n" +
-            "- ls: List files and directories\r\n" +
-            "- cd [dir]: Change directory\r\n" +
-            "- mkdir [dir]: Create directory\r\n" +
-            "- touch [file]: Create empty file\r\n" +
-            "- rm [-r] [file/dir]: Remove file or directory\r\n" +
-            "- cat [file]: Display file content\r\n" +
-            "- echo [text] > [file]: Write text to file\r\n"
-        );
-        term.write("kubernetes$ ");
+        const helpMessage = [
+          "Sandbox created successfully! You have 1 hour to use this environment.",
+          "",
+          "Available commands:",
+          "- You can use 'k' as a shortcut for 'kubectl'",
+          "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')",
+          "- Common commands: get pods, get services, describe pod [name], etc.",
+          "- For Ingress configuration, use the machine IP: 45.55.124.130",
+          "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)",
+          "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste",
+          "- History: Up/Down arrows to navigate through command history",
+          "- Help: 'help' or 'tutorial' to see basic commands",
+        ].join("\n");
+
+        setOutputs((prev) => [...prev, { command: "", output: helpMessage }]);
       })
       .catch((error) => {
-        term.write(`\r\nError creating sandbox: ${error.message}\r\n`);
-        term.write("kubernetes$ ");
+        setOutputs((prev) => [
+          ...prev,
+          { command: "", output: `Error creating sandbox: ${error.message}` },
+        ]);
       });
 
-    const clearCurrentLine = () => {
-      const currentCommand = commandRef.current;
-      for (let i = 0; i < currentCommand.length; i++) {
-        term.write("\b \b");
-      }
+    return () => {
+      kubernetesService.deleteSandbox().catch(console.error);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const handleCommand = async (command: string) => {
-      try {
-        const trimmedCommand = command.trim();
+  const handleCommand = async (command: string) => {
+    try {
+      setCurrentCommand(command);
+      const commands = command
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
 
-        if (
-          trimmedCommand &&
-          (commandHistoryRef.current.length === 0 ||
-            commandHistoryRef.current[commandHistoryRef.current.length - 1] !==
-              trimmedCommand)
-        ) {
-          commandHistoryRef.current.push(trimmedCommand);
-        }
-        historyIndexRef.current = commandHistoryRef.current.length;
-
-        const [cmd, ...args] = trimmedCommand.split(" ");
-
-        if (cmd === "ls") {
-          const files = fs.ls(args[0]);
-          files.forEach((file) => term.write("\r\n" + file));
-          term.write("\r\nkubernetes$ ");
-          return;
+      for (const cmd of commands) {
+        if (cmd) {
+          setCommandHistory((prev) => [...prev, cmd]);
+          setHistoryIndex((prev) => prev + 1);
         }
 
-        if (cmd === "cd") {
-          const newPath = fs.cd(args[0] || "/");
-          term.write("\r\nkubernetes [" + newPath + "]$ ");
-          return;
+        if (cmd === "clear" || cmd === "cls") {
+          setOutputs([]);
+          continue;
         }
 
-        if (cmd === "mkdir") {
-          if (!args[0]) {
-            term.write("\r\nError: mkdir requires a directory name");
-          } else {
-            fs.mkdir(args[0]);
-            term.write("\r\nDirectory created: " + args[0]);
+        if (cmd === "help" || cmd === "tutorial") {
+          const helpMessage = [
+            "🎓 Kubernetes Basic Tutorial",
+            "",
+            "1. Check available nodes:",
+            "   $ kubectl get nodes",
+            "",
+            "2. Create a deployment:",
+            "   $ kubectl create deployment nginx --image=nginx",
+            "",
+            "3. Check pods status:",
+            "   $ kubectl get pods",
+            "   $ watch kubectl get pods  (Ctrl+C to stop)",
+            "",
+            "4. Expose deployment:",
+            "   $ kubectl expose deployment nginx --port=80 --type=LoadBalancer",
+            "",
+            "5. Check service status:",
+            "   $ kubectl get services",
+            "   $ watch kubectl get services  (Ctrl+C to stop)",
+            "",
+            "6. Scale deployment:",
+            "   $ kubectl scale deployment nginx --replicas=3",
+            "",
+            "7. Delete resources:",
+            "   $ kubectl delete deployment nginx",
+            "   $ kubectl delete service nginx",
+          ].join("\n");
+          setOutputs((prev) => [
+            ...prev,
+            { command: cmd, output: helpMessage },
+          ]);
+          continue;
+        }
+
+        if (cmd.startsWith("watch ")) {
+          const watchCommand = cmd.slice(6);
+          setIsWatching(true);
+
+          const executeWatch = async () => {
+            try {
+              let normalizedCommand = watchCommand;
+              if (normalizedCommand.startsWith("kubectl ")) {
+                normalizedCommand = normalizedCommand.slice(7);
+              } else if (normalizedCommand.startsWith("k ")) {
+                normalizedCommand = normalizedCommand.slice(2);
+              }
+
+              const output = await kubernetesService.executeCommand(
+                normalizedCommand
+              );
+              setOutputs((prev) => {
+                const filtered = prev.filter((o) => o.command !== cmd);
+                return [
+                  ...filtered,
+                  {
+                    command: cmd,
+                    output: `Every 2s: ${watchCommand}\n\n${output}`,
+                  },
+                ];
+              });
+            } catch (error) {
+              setOutputs((prev) => [
+                ...prev,
+                {
+                  command: cmd,
+                  output: `Error: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                  }`,
+                },
+              ]);
+
+              if (watchIntervalRef.current) {
+                clearInterval(watchIntervalRef.current);
+                setIsWatching(false);
+              }
+            }
+          };
+
+          await executeWatch();
+
+          watchIntervalRef.current = setInterval(executeWatch, 2000);
+          continue;
+        }
+
+        if (cmd === "\x03" && isWatching) {
+          if (watchIntervalRef.current) {
+            clearInterval(watchIntervalRef.current);
           }
-          term.write("\r\nkubernetes$ ");
-          return;
+          setIsWatching(false);
+          setOutputs((prev) => [
+            ...prev,
+            {
+              command: "",
+              output: "^C",
+            },
+          ]);
+          continue;
         }
 
-        if (cmd === "touch") {
-          if (!args[0]) {
-            term.write("\r\nError: touch requires a file name");
-          } else {
-            fs.touch(args[0]);
-            term.write("\r\nFile created: " + args[0]);
-          }
-          term.write("\r\nkubernetes$ ");
-          return;
-        }
-
-        if (cmd === "rm") {
-          if (!args[0]) {
-            term.write("\r\nError: rm requires a file/directory name");
-          } else {
-            const recursive = args.includes("-r") || args.includes("-rf");
-            fs.rm(args[args.length - 1], recursive);
-            term.write("\r\nRemoved: " + args[args.length - 1]);
-          }
-          term.write("\r\nkubernetes$ ");
-          return;
-        }
-
-        if (cmd === "cat") {
-          if (!args[0]) {
-            term.write("\r\nError: cat requires a file name");
-          } else {
-            const content = fs.cat(args[0]);
-            term.write("\r\n" + content);
-          }
-          term.write("\r\nkubernetes$ ");
-          return;
-        }
-
-        if (cmd === "echo") {
-          if (args.length < 2 || args[args.length - 2] !== ">") {
-            term.write("\r\n" + args.join(" "));
-          } else {
-            const content = args.slice(0, -2).join(" ");
-            const fileName = args[args.length - 1];
-            fs.echo(content, fileName);
-            term.write("\r\nContent written to: " + fileName);
-          }
-          term.write("\r\nkubernetes$ ");
-          return;
-        }
-
-        if (trimmedCommand === "clear" || trimmedCommand === "cls") {
-          term.clear();
-          term.write("\x1b[H");
-          term.write("kubernetes$ ");
-          return;
-        }
-
-        if (trimmedCommand === "tutorial" || trimmedCommand === "help") {
-          term.write("\r\n🎓 Kubernetes Basic Tutorial\r\n");
-          term.write("\r\n1. Getting Started:");
-          term.write("\r\n   - List all pods: get pods");
-          term.write("\r\n   - List all services: get services");
-          term.write("\r\n   - List all deployments: get deployments");
-          term.write("\r\n");
-          term.write("\r\n2. Complete Application Deployment:");
-          term.write("\r\n   # Create nginx deployment with 2 replicas");
-          term.write(
-            "\r\n   create deployment nginx-deployment --image=nginx:latest --replicas=2"
-          );
-          term.write("\r\n");
-          term.write("\r\n   # Check deployment status");
-          term.write("\r\n   get deployment nginx-deployment");
-          term.write("\r\n   get pods");
-          term.write("\r\n");
-          term.write("\r\n   # Create service to expose the deployment");
-          term.write(
-            "\r\n   expose deployment nginx-deployment --port=80 --target-port=80 --name=nginx-service"
-          );
-          term.write("\r\n");
-          term.write("\r\n   # Verify created service");
-          term.write("\r\n   get service nginx-service");
-          term.write("\r\n");
-          term.write("\r\n3. Setting Up Ingress:");
-          term.write("\r\n   # Install NGINX Ingress Controller using Helm");
-          term.write(
-            "\r\n   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx"
-          );
-          term.write("\r\n   helm repo update");
-          term.write(
-            "\r\n   helm install nginx-ingress ingress-nginx/ingress-nginx"
-          );
-          term.write("\r\n");
-          term.write("\r\n   # Or install using kubectl");
-          term.write(
-            "\r\n   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml"
-          );
-          term.write("\r\n");
-          term.write("\r\n   # Verify Ingress Controller installation");
-          term.write("\r\n   get pods -n ingress-nginx");
-          term.write("\r\n   get svc -n ingress-nginx");
-          term.write("\r\n");
-          term.write("\r\n   # Create Ingress resource");
-          term.write(
-            "\r\n   kubectl create ingress nginx-ingress --class=nginx --rule=yourdomain.com/*=nginx-service:80"
-          );
-          term.write("\r\n");
-          term.write("\r\n   # Check Ingress status");
-          term.write("\r\n   get ingress");
-          term.write("\r\n   describe ingress nginx-ingress");
-          term.write("\r\n");
-          term.write("\r\n4. Managing Your Application:");
-          term.write("\r\n   # Scale the number of replicas");
-          term.write("\r\n   scale deployment nginx-deployment --replicas=3");
-          term.write("\r\n");
-          term.write("\r\n   # View logs from a specific pod");
-          term.write(
-            "\r\n   logs nginx-deployment-[press tab to autocomplete]"
-          );
-          term.write("\r\n");
-          term.write("\r\n   # Describe resources for debugging");
-          term.write("\r\n   describe deployment nginx-deployment");
-          term.write("\r\n   describe service nginx-service");
-          term.write("\r\n");
-          term.write("\r\n5. Cleaning Up Resources:");
-          term.write("\r\n   delete deployment nginx-deployment");
-          term.write("\r\n   delete service nginx-service");
-          term.write("\r\n   delete ingress nginx-ingress");
-          term.write("\r\n");
-          term.write("\r\n💡 Tips:");
-          term.write("\r\n- Use 'k' as shorthand for 'kubectl'");
-          term.write("\r\n- The 'kubectl' prefix is optional");
-          term.write("\r\n- Use TAB key for command autocompletion");
-          term.write("\r\n- Use ↑↓ arrows to navigate command history");
-          term.write("\r\n- Use 'describe' for debugging when things go wrong");
-          term.write("\r\n- Always verify resource status after creation");
-          term.write("\r\n");
-          term.write("\r\n📚 Key Concepts:");
-          term.write("\r\n- Deployment: Manages pod replicas and updates");
-          term.write(
-            "\r\n- Service: Exposes pods for internal or external access"
-          );
-          term.write("\r\n- Pod: Smallest deployable unit in Kubernetes");
-          term.write(
-            "\r\n- ReplicaSet: Ensures desired number of pods are running"
-          );
-          term.write("\r\n- Ingress: Manages external access to services");
-          term.write("\r\n");
-          term.write("\r\nkubernetes$ ");
-          return;
-        }
-
-        let normalizedCommand = trimmedCommand;
+        let normalizedCommand = cmd;
         if (normalizedCommand.startsWith("kubectl ")) {
           normalizedCommand = normalizedCommand.slice(7);
         } else if (normalizedCommand.startsWith("k ")) {
@@ -321,116 +225,122 @@ const Terminal = () => {
         const output = await kubernetesService.executeCommand(
           normalizedCommand
         );
-        output.split("\n").forEach((line) => {
-          term.write("\r\n" + line);
-        });
-      } catch (error) {
-        term.write(
-          `\r\nError: ${
+        if (output.trim() === "" && normalizedCommand.startsWith("get ")) {
+          setOutputs((prev) => [
+            ...prev,
+            { command: cmd, output: "No resources found" },
+          ]);
+        } else {
+          setOutputs((prev) => [...prev, { command: cmd, output }]);
+        }
+      }
+    } catch (error) {
+      setOutputs((prev) => [
+        ...prev,
+        {
+          command: command,
+          output: `Error: ${
             error instanceof Error ? error.message : "Unknown error"
-          }`
-        );
-      }
-      term.write("\r\nkubernetes$ ");
-    };
+          }`,
+        },
+      ]);
+    }
+  };
 
-    term.onKey(({ key, domEvent }) => {
-      const ev = domEvent as KeyboardEvent;
-      const isCopyPasteKey = ev.ctrlKey || ev.metaKey;
-
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "l") {
-        term.clear();
-        term.write("\x1b[H");
-        term.write("kubernetes$ ");
-        commandRef.current = "";
-        return;
-      }
-
-      if (isCopyPasteKey && (ev.key === "c" || ev.key === "v")) {
-        return;
-      }
-
-      if (ev.key === "ArrowUp" || ev.key === "ArrowDown") {
-        const history = commandHistoryRef.current;
-        if (history.length === 0) return;
-
-        if (historyIndexRef.current === history.length) {
-          currentLineRef.current = commandRef.current;
-        }
-
-        if (ev.key === "ArrowUp" && historyIndexRef.current > 0) {
-          historyIndexRef.current--;
-        } else if (
-          ev.key === "ArrowDown" &&
-          historyIndexRef.current < history.length
-        ) {
-          historyIndexRef.current++;
-        }
-
-        clearCurrentLine();
-
-        if (historyIndexRef.current === history.length) {
-          commandRef.current = currentLineRef.current;
-        } else {
-          commandRef.current = history[historyIndexRef.current];
-        }
-
-        term.write(commandRef.current);
-        return;
-      }
-
-      if (ev.keyCode === 13) {
-        const command = commandRef.current;
-        if (command.trim()) {
-          term.write("\r\n");
-          handleCommand(command);
-        } else {
-          term.write("\r\nkubernetes$ ");
-        }
-        commandRef.current = "";
-      } else if (ev.keyCode === 8) {
-        if (commandRef.current.length > 0) {
-          commandRef.current = commandRef.current.slice(0, -1);
-          term.write("\b \b");
-        }
-      } else if (key.length === 1) {
-        commandRef.current += key;
-        term.write(key);
-      }
-    });
-
-    const handleResize = () => {
-      setTimeout(() => {
-        fitAddon.fit();
-      }, 100);
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      kubernetesService.deleteSandbox().catch(console.error);
-      term.dispose();
-      window.removeEventListener("resize", handleResize);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!terminalInstance.current) return;
-
-    terminalInstance.current.options.theme = {
-      background: isDark ? "#1a1b26" : "#ffffff",
-      foreground: isDark ? "#a9b1d6" : "#000000",
-      cursor: isDark ? "#a9b1d6" : "#000000",
-      cursorAccent: isDark ? "#1a1b26" : "#ffffff",
-    };
-  }, [isDark]);
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1000);
+  };
 
   return (
-    <div className="w-full h-full">
-      <div
-        ref={terminalRef}
-        className="w-full h-full [&_.xterm-viewport]:!overflow-hidden"
+    <div className="flex flex-col w-full h-screen">
+      <div className="flex-1 min-h-0 border-t border-white/10">
+        <div
+          className="w-full h-full p-4 overflow-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-background [&::-webkit-scrollbar-thumb]:bg-accent hover:[&::-webkit-scrollbar-thumb]:bg-accent/80"
+          ref={outputRef}
+        >
+          {outputs.map((output, index) => (
+            <div
+              key={index}
+              className="group mb-4 last:mb-0 pb-4 border-b border-white/10 last:border-0 relative"
+            >
+              {output.command && (
+                <div className="mb-1 font-mono flex items-center justify-between">
+                  <div>
+                    <span className="text-pink-500">~</span>{" "}
+                    {cluster && (
+                      <span className="text-cyan-500">{cluster}</span>
+                    )}{" "}
+                    <span className="text-white font-['Geist Mono'] font-medium">
+                      $ {output.command}
+                    </span>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="p-1 hover:bg-white/10 rounded">
+                        <EllipsisVertical className="w-4 h-4" />
+                      </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem
+                        onClick={() => handleCopy(output.command)}
+                      >
+                        {copied ? (
+                          <CopyCheck className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Copy className="w-4 h-4 mr-2" />
+                        )}
+                        Copy Command
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleCopy(output.output)}
+                      >
+                        <TerminalIcon className="w-4 h-4 mr-2" />
+                        Copy Output
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          handleCopy(`${output.command}\n${output.output}`)
+                        }
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Copy Block
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+              <pre
+                className={`whitespace-pre-wrap font-mono text-sm ${
+                  output.output.startsWith("Error:") ||
+                  output.output.includes("error")
+                    ? "bg-red-950/30 p-2 rounded"
+                    : ""
+                }`}
+              >
+                {output.output}
+              </pre>
+            </div>
+          ))}
+          {currentCommand.split("\n").map(
+            (line: string, index) =>
+              line.startsWith("#") && (
+                <div
+                  key={`comment-${index}`}
+                  className="text-muted-foreground mb-4 last:mb-0"
+                >
+                  {line}
+                </div>
+              )
+          )}
+        </div>
+      </div>
+      <CommandInput
+        onExecute={handleCommand}
+        commandHistory={commandHistory}
+        historyIndex={historyIndex}
+        onHistoryChange={setHistoryIndex}
       />
     </div>
   );

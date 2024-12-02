@@ -15,6 +15,7 @@ An interactive web application to learn and practice Kubernetes commands through
 - Automatic sandbox cleanup after 1 hour
 - Real Kubernetes cluster using k3d
 - No installation required - practice directly in your browser
+- Monaco Editor for code editing
 
 ## 🛠️ Architecture
 
@@ -22,7 +23,6 @@ An interactive web application to learn and practice Kubernetes commands through
 
 - Next.js 15 with React and TypeScript
 - TailwindCSS for styling
-- xterm.js for terminal emulation
 - Responsive design with dark/light theme
 
 ### Backend

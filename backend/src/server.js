@@ -280,7 +280,6 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
 
     console.log('Setting sandbox cookie')
     res.cookie('sandboxId', sandboxId, {
-      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: SANDBOX_LIFETIME_MS,

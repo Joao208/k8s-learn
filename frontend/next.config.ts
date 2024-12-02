@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/sandbox/:path*",
-        destination: "http://localhost:3001/api/sandbox/:path*",
+        destination: "https://k8s-learn.joaobarros.dev/api/sandbox/:path*",
       },
     ];
   },
