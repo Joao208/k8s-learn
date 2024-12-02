@@ -20,8 +20,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker
     privileged: true
-    networks:
-      - app-network
+    network_mode: "host"
     environment:
       - K3D_FIX_MOUNTS=1
 
