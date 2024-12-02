@@ -17,83 +17,143 @@ export default async function Image() {
           height: "100%",
           width: "100%",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#030711",
-          backgroundImage:
-            "linear-gradient(45deg, #0F172A 25%, transparent 25%), linear-gradient(-45deg, #0F172A 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #0F172A 75%), linear-gradient(-45deg, transparent 75%, #0F172A 75%)",
-          backgroundSize: "20px 20px",
-          backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+          backgroundColor: "#0F172A",
+          padding: "40px",
         }}
       >
         <div
           style={{
+            width: "90%",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
             backgroundColor: "#0F172A",
-            padding: "40px 60px",
-            borderRadius: "20px",
+            borderRadius: "12px",
             border: "1px solid #1E293B",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            overflow: "hidden",
           }}
         >
-          <h1
-            style={{
-              fontSize: 60,
-              fontWeight: 800,
-              background: "linear-gradient(to bottom right, #60A5FA, #3B82F6)",
-              backgroundClip: "text",
-              color: "transparent",
-              margin: 0,
-              lineHeight: 1.2,
-              textAlign: "center",
-            }}
-          >
-            K8s Learn
-          </h1>
-          <p
-            style={{
-              fontSize: 30,
-              color: "#E2E8F0",
-              margin: "20px 0",
-              textAlign: "center",
-            }}
-          >
-            Interactive Kubernetes Playground with a Beautiful Terminal right in
-            your browser
-          </p>
+          {/* Barra de título do terminal */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "10px",
+              padding: "12px 16px",
               backgroundColor: "#1E293B",
-              padding: "12px 24px",
-              borderRadius: "10px",
-              marginTop: "20px",
+              borderBottom: "1px solid #334155",
             }}
           >
-            <p
+            {/* Seção esquerda - Botões de controle */}
+            <div style={{ width: "80px", display: "flex", gap: "8px" }}>
+              <div
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  backgroundColor: "#EF4444",
+                }}
+              />
+              <div
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  backgroundColor: "#FCD34D",
+                }}
+              />
+              <div
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  backgroundColor: "#4ADE80",
+                }}
+              />
+            </div>
+            {/* Seção central - Título */}
+            <div
               style={{
-                fontSize: 24,
-                color: "#4ADE80",
-                margin: 0,
+                flex: 1,
+                textAlign: "center",
+                color: "#94A3B8",
+                fontSize: 16,
               }}
             >
-              $
-            </p>
+              Terminal
+            </div>
+            {/* Seção direita - Espaço vazio para equilíbrio */}
+            <div style={{ width: "80px" }} />
+          </div>
+
+          {/* Conteúdo do terminal */}
+          <div
+            style={{
+              padding: "40px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "24px",
+            }}
+          >
+            <h1
+              style={{
+                fontSize: 60,
+                fontWeight: 800,
+                background:
+                  "linear-gradient(to bottom right, #60A5FA, #3B82F6)",
+                backgroundClip: "text",
+                color: "transparent",
+                margin: 0,
+                lineHeight: 1.2,
+                textAlign: "center",
+              }}
+            >
+              K8s Learn
+            </h1>
             <p
               style={{
-                fontSize: 24,
+                fontSize: 30,
                 color: "#E2E8F0",
                 margin: 0,
+                textAlign: "left",
+                maxWidth: "80%",
               }}
             >
-              kubectl get started
+              Interactive Kubernetes Playground with a Beautiful Terminal right
+              in your browser
             </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                backgroundColor: "#1E293B",
+                padding: "16px 24px",
+                borderRadius: "8px",
+                marginTop: "12px",
+                fontFamily: "monospace",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 24,
+                  color: "#4ADE80",
+                  margin: 0,
+                }}
+              >
+                $
+              </p>
+              <p
+                style={{
+                  fontSize: 24,
+                  color: "#E2E8F0",
+                  margin: 0,
+                }}
+              >
+                kubectl get started
+              </p>
+            </div>
           </div>
         </div>
       </div>
