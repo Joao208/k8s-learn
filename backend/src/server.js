@@ -6,12 +6,15 @@ import cookieParser from 'cookie-parser'
 import cron from 'node-cron'
 import net from 'net'
 import fs from 'fs/promises'
+import requestIp from 'request-ip'
 
 dotenv.config()
 console.log('Environment variables loaded')
 
 const app = express()
 const router = express.Router()
+
+app.use(requestIp.mw())
 
 app.use(express.json())
 app.use(cookieParser())
@@ -28,24 +31,8 @@ console.log(
   `Sandbox lifetime set to ${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`
 )
 
-function getClientIP(req) {
-  const clientIp = req.headers['x-real-client-ip']
-  if (clientIp) {
-    console.log(`Using IP from frontend: ${clientIp}`)
-    return clientIp
-  }
-
-  const ip = req.socket.remoteAddress
-  console.log(`Using socket IP: ${ip}`)
-
-  if (ip === '::1' || ip === '::ffff:127.0.0.1') {
-    return '127.0.0.1'
-  }
-  return ip.replace(/^::ffff:/, '')
-}
-
 function preventConcurrentRequests(req, res, next) {
-  const clientIp = getClientIP(req)
+  const clientIp = requestIp.getClientIp(req)
   console.log(`Request from IP: ${clientIp}`)
 
   if (creationLocks.get(clientIp)) {
@@ -333,7 +320,7 @@ async function executeCommand(sandboxId, command, type = 'kubectl') {
 }
 
 router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
-  const clientIp = getClientIP(req)
+  const clientIp = requestIp.getClientIp(req)
   console.log(`Processing sandbox request for IP: ${clientIp}`)
 
   try {
@@ -445,7 +432,7 @@ router.delete('/sandbox', validateSandbox, async (req, res) => {
   console.log('Received sandbox deletion request')
   try {
     const sandboxId = req.cookies.sandboxId
-    const clientIp = req.ip
+    const clientIp = requestIp.getClientIp(req)
     console.log(`Deleting sandbox ${sandboxId}`)
     await deleteCluster(sandboxId)
     sandboxes.delete(sandboxId)
