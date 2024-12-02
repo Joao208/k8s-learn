@@ -12,12 +12,15 @@ console.log('Environment variables loaded')
 
 const app = express()
 const router = express.Router()
+
+app.set('trust proxy', true)
+
 app.use(express.json())
 app.use(cookieParser())
 console.log('Express app configured with JSON and cookie parser middleware')
 
 const SANDBOX_LIFETIME_MS = 60 * 60 * 1000
-const MAX_CONCURRENT_SANDBOXES = 0
+const MAX_CONCURRENT_SANDBOXES = 2
 const sandboxes = new Map()
 const creationLocks = new Map()
 const ipToSandbox = new Map()
@@ -26,6 +29,36 @@ const generateId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10)
 console.log(
   `Sandbox lifetime set to ${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`
 )
+
+function getClientIP(req) {
+  const forwardedFor = req.headers['x-forwarded-for']
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+  return req.ip
+}
+
+function preventConcurrentRequests(req, res, next) {
+  const clientIp = getClientIP(req)
+  console.log(`Checking concurrent requests for IP: ${clientIp}`)
+
+  if (creationLocks.get(clientIp)) {
+    console.log(`Concurrent request detected for IP: ${clientIp}`)
+    return res.status(429).json({
+      error: 'A sandbox is already being created for this IP. Please wait.',
+      retryAfter: 5000,
+    })
+  }
+
+  creationLocks.set(clientIp, true)
+  console.log(`Lock set for IP: ${clientIp}`)
+  res.on('finish', () => {
+    creationLocks.delete(clientIp)
+    console.log(`Lock released for IP: ${clientIp}`)
+  })
+
+  next()
+}
 
 async function processQueue() {
   if (sandboxes.size >= MAX_CONCURRENT_SANDBOXES || sandboxQueue.length === 0) {
@@ -227,27 +260,6 @@ async function deleteCluster(sandboxId) {
   }
 }
 
-function preventConcurrentRequests(req, res, next) {
-  const clientIp = req.ip
-  console.log(`Checking concurrent requests for IP: ${clientIp}`)
-
-  if (creationLocks.get(clientIp)) {
-    console.log(`Concurrent request detected for IP: ${clientIp}`)
-    return res.status(429).json({
-      error: 'A sandbox is already being created for this IP. Please wait.',
-    })
-  }
-
-  creationLocks.set(clientIp, true)
-  console.log(`Lock set for IP: ${clientIp}`)
-  res.on('finish', () => {
-    creationLocks.delete(clientIp)
-    console.log(`Lock released for IP: ${clientIp}`)
-  })
-
-  next()
-}
-
 async function validateSandbox(req, res, next) {
   const sandboxId = req.cookies.sandboxId
   console.log(`Validating sandbox: ${sandboxId}`)
@@ -315,7 +327,9 @@ async function executeCommand(sandboxId, command, type = 'kubectl') {
 
 router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
   console.log('Received request to create/get sandbox')
-  const clientIp = req.ip
+  const clientIp = getClientIP(req)
+  console.log(`Client IP: ${clientIp}`)
+
   try {
     const existingSandboxId = ipToSandbox.get(clientIp)
     console.log(`Checking sandbox for IP ${clientIp}: ${existingSandboxId}`)
@@ -365,27 +379,12 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
       )
       const queuePosition = sandboxQueue.length + 1
 
-      try {
-        const result = await new Promise((resolve, reject) => {
-          console.log(
-            `Adding IP ${clientIp} to queue at position ${queuePosition}`
-          )
-          sandboxQueue.push({ ip: clientIp, resolve, reject })
-        })
-
-        const { sandboxId, message, expiresIn } = result
-        console.log('Setting sandbox cookie from queue')
-        res.cookie('sandboxId', sandboxId, {
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: SANDBOX_LIFETIME_MS,
-        })
-
-        return res.json({ message, sandboxId, expiresIn, queuePosition })
-      } catch (error) {
-        console.error('Error while in queue:', error)
-        return res.status(500).json({ error: error.message })
-      }
+      return res.status(202).json({
+        message: 'Added to queue',
+        queuePosition,
+        estimatedWaitTime: `${queuePosition * 2} minutes`,
+        retryAfter: 5000,
+      })
     }
 
     const sandboxId = 'sb-' + generateId()
