@@ -63,6 +63,14 @@ function Terminal() {
 
     const welcomeMessage = [
       "Welcome to Kubernetes Terminal! 🚀",
+      "",
+      "⚠️ Important Security Notice:",
+      "- This is a learning environment with isolated sandboxes",
+      "- DO NOT use any sensitive information, secrets, or production credentials",
+      "- While sandboxes are isolated, they are still shared infrastructure",
+      "- All data is automatically deleted after 1 hour",
+      "- This is for educational purposes only",
+      "",
       "Setting up your Kubernetes sandbox...",
       "(This might take a few seconds if a new sandbox needs to be created)",
     ].join("\n");
