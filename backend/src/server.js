@@ -17,13 +17,41 @@ app.use(cookieParser())
 console.log('Express app configured with JSON and cookie parser middleware')
 
 const SANDBOX_LIFETIME_MS = 60 * 60 * 1000
+const MAX_CONCURRENT_SANDBOXES = 10
 const sandboxes = new Map()
 const creationLocks = new Map()
 const ipToSandbox = new Map()
+const sandboxQueue = []
 const generateId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10)
 console.log(
   `Sandbox lifetime set to ${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`
 )
+
+async function processQueue() {
+  if (sandboxes.size >= MAX_CONCURRENT_SANDBOXES || sandboxQueue.length === 0) {
+    return
+  }
+
+  const { ip, resolve, reject } = sandboxQueue.shift()
+  const sandboxId = 'sb-' + generateId()
+
+  try {
+    console.log(`Processing queue: Creating sandbox ${sandboxId} for IP ${ip}`)
+    await createCluster(sandboxId)
+    ipToSandbox.set(ip, sandboxId)
+    sandboxes.set(sandboxId, Date.now())
+    resolve({
+      sandboxId,
+      message: 'Sandbox created successfully',
+      expiresIn: `${SANDBOX_LIFETIME_MS / 1000 / 60} minutes`,
+    })
+  } catch (error) {
+    console.error(`Error creating sandbox from queue for IP ${ip}:`, error)
+    reject(error)
+  } finally {
+    processQueue()
+  }
+}
 
 async function cleanupExpiredSandboxes() {
   console.log('Starting cleanup of expired sandboxes')
@@ -100,6 +128,8 @@ async function cleanupExpiredSandboxes() {
   }
 
   console.log(`Cleanup completed. Removed ${cleanedCount} clusters`)
+
+  processQueue()
 }
 
 cleanupExpiredSandboxes()
@@ -329,6 +359,35 @@ router.post('/sandbox', preventConcurrentRequests, async (req, res) => {
       res.clearCookie('sandboxId')
     }
 
+    if (sandboxes.size >= MAX_CONCURRENT_SANDBOXES) {
+      console.log(
+        'Maximum number of concurrent sandboxes reached, adding to queue'
+      )
+      const queuePosition = sandboxQueue.length + 1
+
+      try {
+        const result = await new Promise((resolve, reject) => {
+          console.log(
+            `Adding IP ${clientIp} to queue at position ${queuePosition}`
+          )
+          sandboxQueue.push({ ip: clientIp, resolve, reject })
+        })
+
+        const { sandboxId, message, expiresIn } = result
+        console.log('Setting sandbox cookie from queue')
+        res.cookie('sandboxId', sandboxId, {
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: SANDBOX_LIFETIME_MS,
+        })
+
+        return res.json({ message, sandboxId, expiresIn, queuePosition })
+      } catch (error) {
+        console.error('Error while in queue:', error)
+        return res.status(500).json({ error: error.message })
+      }
+    }
+
     const sandboxId = 'sb-' + generateId()
     console.log(`Creating new sandbox with ID: ${sandboxId}`)
     await createCluster(sandboxId)
@@ -390,6 +449,9 @@ router.delete('/sandbox', validateSandbox, async (req, res) => {
     ipToSandbox.delete(clientIp)
     res.clearCookie('sandboxId')
     console.log(`Sandbox ${sandboxId} deleted successfully`)
+
+    processQueue()
+
     res.json({
       message: 'Sandbox deleted successfully',
     })

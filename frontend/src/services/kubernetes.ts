@@ -4,6 +4,7 @@ interface SandboxResponse {
   message: string;
   sandboxId: string;
   expiresIn: string;
+  queuePosition?: number;
 }
 
 export class KubernetesService {

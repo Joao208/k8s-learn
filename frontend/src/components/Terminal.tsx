@@ -67,38 +67,74 @@ function Terminal() {
 
     setOutputs([{ command: "", output: welcomeMessage }]);
 
-    kubernetesService
-      .createSandbox()
-      .then(
-        (response: {
-          message: string;
-          sandboxId: string;
-          expiresIn: string;
-        }) => {
-          const sandboxId = getCookie("sandboxId") as string;
-          if (sandboxId) {
-            setCluster(sandboxId);
+    const pollQueue = async (retryCount = 0, maxRetries = 30) => {
+      try {
+        const response = await kubernetesService.createSandbox();
+        if (response.queuePosition) {
+          if (retryCount >= maxRetries) {
+            throw new Error("Queue timeout: Please try again later");
           }
 
-          const helpMessage = [
-            response.message === "Using existing sandbox"
-              ? "Connected to your existing sandbox! You can continue where you left off."
-              : "Sandbox created successfully! You have 1 hour to use this environment.",
+          const queueMessage = [
+            "🔄 You are currently in a waiting queue.",
             "",
-            "Available commands:",
-            "- You can use 'k' as a shortcut for 'kubectl'",
-            "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')",
-            "- Common commands: get pods, get services, describe pod [name], etc.",
-            "- For Ingress configuration, use the machine IP: 45.55.124.130",
-            "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)",
-            "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste",
-            "- History: Up/Down arrows to navigate through command history",
-            "- Help: 'help' or 'tutorial' to see basic commands",
+            `Queue Position: ${response.queuePosition}`,
+            "",
+            "⚡ Why am I in a queue?",
+            "This is an open-source project with limited resources. To ensure a great experience for everyone,",
+            "we maintain a maximum of 10 concurrent sandboxes. This helps us keep the service free and stable.",
+            "",
+            "⏳ What should I do?",
+            "Just hang tight! Your sandbox will be automatically created as soon as resources become available.",
+            "We'll keep checking every 5 seconds and update you on your position.",
+            "",
+            "💙 Thank you for your patience and for using our service!",
+            "Consider supporting the project on GitHub if you find it useful.",
+            "",
+            "Checking again in 5 seconds...",
           ].join("\n");
 
-          setOutputs((prev) => [...prev, { command: "", output: helpMessage }]);
+          setOutputs((prev) => [
+            ...prev,
+            {
+              command: "",
+              output: queueMessage,
+            },
+          ]);
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          return pollQueue(retryCount + 1);
         }
-      )
+        return response;
+      } catch (error) {
+        throw error;
+      }
+    };
+
+    pollQueue()
+      .then((response) => {
+        const sandboxId = getCookie("sandboxId") as string;
+        if (sandboxId) {
+          setCluster(sandboxId);
+        }
+
+        const helpMessage = [
+          response.message === "Using existing sandbox"
+            ? "Connected to your existing sandbox! You can continue where you left off."
+            : "Sandbox created successfully! You have 1 hour to use this environment.",
+          "",
+          "Available commands:",
+          "- You can use 'k' as a shortcut for 'kubectl'",
+          "- 'kubectl' prefix is optional (e.g., 'get pods' works the same as 'kubectl get pods')",
+          "- Common commands: get pods, get services, describe pod [name], etc.",
+          "- For Ingress configuration, use the machine IP: 45.55.124.130",
+          "- Clear screen: 'clear', 'cls' or Ctrl+L (Cmd+L on Mac)",
+          "- Copy/Paste: Ctrl+C/Ctrl+V (Cmd+C/Cmd+V on Mac) to copy/paste",
+          "- History: Up/Down arrows to navigate through command history",
+          "- Help: 'help' or 'tutorial' to see basic commands",
+        ].join("\n");
+
+        setOutputs((prev) => [...prev, { command: "", output: helpMessage }]);
+      })
       .catch((error) => {
         const errorMessage =
           error.status === 429
