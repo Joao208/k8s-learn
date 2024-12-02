@@ -1,18 +1,28 @@
 "use client";
 
 import dynamic from "next/dynamic";
-
-const LoadingComponent = () => (
-  <div className="w-full h-full flex items-center justify-center bg-background text-foreground">
-    Loading terminal...
-  </div>
-);
+import { useState } from "react";
 
 const Terminal = dynamic(() => import("@/components/Terminal"), {
   ssr: false,
-  loading: LoadingComponent,
 });
 
 export default function TerminalWrapper() {
+  const [shouldLoadTerminal, setShouldLoadTerminal] = useState(false);
+
+  if (!shouldLoadTerminal) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-background text-foreground">
+        <p>Loading terminal...</p>
+        <button
+          onClick={() => setShouldLoadTerminal(true)}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        >
+          Create Sandbox
+        </button>
+      </div>
+    );
+  }
+
   return <Terminal />;
 }
