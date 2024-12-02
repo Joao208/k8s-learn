@@ -35,7 +35,6 @@ export default async function Image() {
             overflow: "hidden",
           }}
         >
-          {/* Barra de título do terminal */}
           <div
             style={{
               display: "flex",
@@ -45,7 +44,6 @@ export default async function Image() {
               borderBottom: "1px solid #334155",
             }}
           >
-            {/* Seção esquerda - Botões de controle */}
             <div style={{ width: "80px", display: "flex", gap: "8px" }}>
               <div
                 style={{
@@ -72,7 +70,6 @@ export default async function Image() {
                 }}
               />
             </div>
-            {/* Seção central - Título */}
             <div
               style={{
                 flex: 1,
@@ -83,11 +80,9 @@ export default async function Image() {
             >
               Terminal
             </div>
-            {/* Seção direita - Espaço vazio para equilíbrio */}
             <div style={{ width: "80px" }} />
           </div>
 
-          {/* Conteúdo do terminal */}
           <div
             style={{
               padding: "40px",
