@@ -18,8 +18,10 @@ import {
   Terminal as TerminalIcon,
   Download,
   EllipsisVertical,
+  GithubIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import Link from "next/link";
 
 interface CommandOutput {
   command: string;
@@ -319,7 +321,12 @@ function Terminal() {
           ))}
         </div>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link href="https://github.com/joao208/k8s-learn">
+            <GithubIcon className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
       <div className="flex-1 min-h-0 border-t border-white/10">
         <div
