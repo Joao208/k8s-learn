@@ -2,7 +2,7 @@
 
 An interactive web application to learn and practice Kubernetes commands through a web terminal.
 
-![K8s Learn Terminal](assets/screenshot.png)
+https://github.com/user-attachments/assets/c0d85aa7-2cf4-4691-bfd7-959fda83c2f8
 
 🔗 [Access K8s Learn](https://k8s-learn.joaobarros.dev/)
 
