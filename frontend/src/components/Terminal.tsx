@@ -160,6 +160,12 @@ function Terminal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+    }
+  }, [outputs]);
+
   const handleCommand = async (command: string) => {
     try {
       setCurrentCommand(command);
@@ -320,8 +326,8 @@ function Terminal() {
               onClick={() => setSelectedTutorial(tutorial)}
               className={`px-3 py-1 rounded text-sm ${
                 selectedTutorial.id === tutorial.id
-                  ? "bg-white/10"
-                  : "hover:bg-white/5"
+                  ? "bg-accent"
+                  : "hover:bg-accent/50"
               }`}
             >
               {tutorial.title}
@@ -349,22 +355,20 @@ function Terminal() {
           {outputs.map((output, index) => (
             <div
               key={index}
-              className="group mb-4 last:mb-0 pb-4 border-b border-white/10 last:border-0 relative"
+              className="group mb-4 last:mb-0 pb-4 border-b border-border last:border-0 relative"
             >
               {output.command && (
                 <div className="mb-1 font-mono flex items-center justify-between">
                   <div>
-                    <span className="text-pink-500">~</span>{" "}
-                    {cluster && (
-                      <span className="text-cyan-500">{cluster}</span>
-                    )}{" "}
-                    <span className="text-white font-['Geist Mono'] font-medium">
+                    <span className="text-destructive">~</span>{" "}
+                    {cluster && <span className="text-primary">{cluster}</span>}{" "}
+                    <span className="text-foreground font-['Geist Mono'] font-medium">
                       $ {output.command}
                     </span>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="p-1 hover:bg-white/10 rounded">
+                      <div className="p-1 hover:bg-accent rounded">
                         <EllipsisVertical className="w-4 h-4" />
                       </div>
                     </DropdownMenuTrigger>
@@ -401,7 +405,7 @@ function Terminal() {
                 className={`whitespace-pre-wrap font-mono text-sm ${
                   output.output.startsWith("Error:") ||
                   output.output.includes("error")
-                    ? "bg-red-950/30 p-2 rounded"
+                    ? "bg-destructive/10 p-2 rounded"
                     : ""
                 }`}
               >

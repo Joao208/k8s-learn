@@ -13,7 +13,6 @@ export default function TerminalWrapper() {
   if (!shouldLoadTerminal) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <p>Loading terminal...</p>
         <button
           onClick={() => setShouldLoadTerminal(true)}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"

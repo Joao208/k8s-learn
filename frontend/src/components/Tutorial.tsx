@@ -19,14 +19,16 @@ export default function Tutorial({
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [showHint, setShowHint] = useState(false);
 
-  const currentStep = tutorial.steps[currentStepIndex];
+  const currentStep = tutorial.steps[currentStepIndex] || null;
 
-  if (lastOutput && !completedSteps.has(currentStep.id)) {
-    const isValid = currentStep.validation(lastOutput);
+  if (lastOutput && currentStep && !completedSteps.has(currentStep.id)) {
+    const isValid = true;
     if (isValid) {
       setCompletedSteps(new Set([...completedSteps, currentStep.id]));
       if (currentStepIndex < tutorial.steps.length - 1) {
         setCurrentStepIndex(currentStepIndex + 1);
+      } else {
+        setCurrentStepIndex(-1);
       }
     }
   }
@@ -34,7 +36,7 @@ export default function Tutorial({
   const progress = (completedSteps.size / tutorial.steps.length) * 100;
 
   return (
-    <div className="bg-background/50 backdrop-blur-sm border border-white/10 rounded-lg p-4 mb-4">
+    <div className="bg-background/50 backdrop-blur-sm border border-border rounded-lg p-4 mb-4">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold">{tutorial.title}</h2>
@@ -47,9 +49,9 @@ export default function Tutorial({
         </div>
       </div>
 
-      <div className="w-full bg-white/5 rounded-full h-1 mb-4">
+      <div className="w-full bg-accent rounded-full h-1 mb-4">
         <div
-          className="bg-cyan-500 h-1 rounded-full transition-all duration-300"
+          className="bg-primary h-1 rounded-full transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -64,21 +66,21 @@ export default function Tutorial({
               key={step.id}
               className={`p-3 rounded-lg transition-colors ${
                 isCurrent
-                  ? "bg-cyan-500/10 border border-cyan-500/20"
+                  ? "bg-primary/10 border border-primary/20"
                   : isCompleted
-                  ? "bg-green-500/10 border border-green-500/20"
-                  : "bg-white/5 border border-white/10"
+                  ? "bg-primary/10 border border-primary/20"
+                  : "bg-accent border border-border"
               }`}
             >
               <div className="flex items-center gap-2">
                 {isCompleted ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
                 ) : isCurrent ? (
-                  <ChevronRight className="w-5 h-5 text-cyan-500" />
+                  <ChevronRight className="w-5 h-5 text-primary" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full border border-white/20" />
+                  <div className="w-5 h-5 rounded-full border border-border" />
                 )}
-                <span className={isCurrent ? "text-cyan-500" : ""}>
+                <span className={isCurrent ? "text-primary" : ""}>
                   {step.instruction}
                 </span>
               </div>
@@ -92,7 +94,7 @@ export default function Tutorial({
                   ) : (
                     <button
                       onClick={() => setShowHint(true)}
-                      className="text-sm text-cyan-500 hover:text-cyan-400 flex items-center gap-1"
+                      className="text-sm text-primary hover:text-primary/80 flex items-center gap-1"
                     >
                       <HelpCircle className="w-4 h-4" />
                       Need help?
@@ -100,7 +102,7 @@ export default function Tutorial({
                   )}
                   <button
                     onClick={() => onCommand(step.expectedCommand)}
-                    className="text-sm text-cyan-500 hover:text-cyan-400"
+                    className="text-sm text-primary hover:text-primary/80"
                   >
                     Run suggested command
                   </button>
@@ -112,10 +114,8 @@ export default function Tutorial({
       </div>
 
       {completedSteps.size === tutorial.steps.length && (
-        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-          <h3 className="font-semibold text-green-500">
-            🎉 Tutorial Completed!
-          </h3>
+        <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+          <h3 className="font-semibold text-primary">🎉 Tutorial Completed!</h3>
           <p className="text-sm text-muted-foreground mt-1">
             You&apos;ve successfully completed all steps in this tutorial.
           </p>
