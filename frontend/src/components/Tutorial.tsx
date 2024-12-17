@@ -22,7 +22,7 @@ export default function Tutorial({
   const currentStep = tutorial.steps[currentStepIndex] || null;
 
   if (lastOutput && currentStep && !completedSteps.has(currentStep.id)) {
-    const isValid = true;
+    const isValid = currentStep.validation(lastOutput);
     if (isValid) {
       setCompletedSteps(new Set([...completedSteps, currentStep.id]));
       if (currentStepIndex < tutorial.steps.length - 1) {
